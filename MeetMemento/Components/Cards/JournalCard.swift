@@ -7,11 +7,10 @@ struct JournalCard: View {
     let title: String
     let excerpt: String
     let date: Date
-    var pinned: Bool = false
 
     /// Optional actions (no-op by default so previews never depend on app state)
     var onTap: (() -> Void)? = nil
-    var onPinToggle: (() -> Void)? = nil
+    var onMoreTapped: (() -> Void)? = nil
 
     // MARK: - Body
     var body: some View {
@@ -49,7 +48,7 @@ struct JournalCard: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 8)
-            PinButton(isPinned: pinned) { onPinToggle?() }
+            MoreButton(action: { onMoreTapped?() })
         }
     }
 
@@ -68,30 +67,28 @@ struct JournalCard: View {
     }
 
     private var accessibilityLabel: String {
-        let pinnedText = pinned ? ", pinned" : ""
-        return "Journal card, \(title)\(pinnedText). Dated \(date.formatted(date: .abbreviated, time: .shortened)). \(excerpt)"
+        "Journal card, \(title). Dated \(date.formatted(date: .abbreviated, time: .shortened)). \(excerpt)"
     }
 }
 
-// MARK: - Pin Button (local, lightweight)
-private struct PinButton: View {
-    let isPinned: Bool
-    let action: () -> Void
+// MARK: - Three-dot (More) Button
+private struct MoreButton: View {
+    var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Label(isPinned ? "Pinned" : "Pin", systemImage: isPinned ? "pin.fill" : "pin")
-                .labelStyle(.iconOnly)
+            Image(systemName: "ellipsis")
                 .imageScale(.medium)
-                .foregroundStyle(isPinned ? .primary : .secondary)
                 .padding(6)
                 .background(
                     Circle()
-                        .fill(isPinned ? Color.secondary.opacity(0.15) : Color.clear)
+                        .fill(Color.secondary.opacity(0.12))
                 )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isPinned ? "Unpin entry" : "Pin entry")
+        .accessibilityLabel("More options")
+        .accessibilityHint("Shows actions for this journal entry")
+        .contentShape(Rectangle())
     }
 }
 
@@ -105,16 +102,13 @@ extension JournalCard {
 // Keep previews in the same file for convenience, or move into `JournalCard+Preview.swift`.
 // Import NOTHING from your app target here besides SwiftUI and this view file.
 private struct JournalCardHarness: View {
-    @State private var pinned = true
-
     var body: some View {
         JournalCard(
             title: JournalCard.sampleTitle,
             excerpt: JournalCard.sampleExcerpt,
             date: .now,
-            pinned: pinned,
             onTap: { /* no-op for harness */ },
-            onPinToggle: { pinned.toggle() }
+            onMoreTapped: { /* present a mock sheet/menu in sandbox if you want */ }
         )
         .previewLayout(.sizeThatFits)
         .padding()
@@ -126,16 +120,12 @@ private struct JournalCardHarness: View {
     JournalCardHarness()
 }
 
-#Preview("JournalCard · dark") {
-    JournalCardHarness()
-}
 
 #Preview("JournalCard · long text") {
     JournalCard(
         title: "Weekly review and planning checklist for Q4",
         excerpt: "What went well: shipped UI preview harnesses, stabilized Xcode canvas. What to improve: fewer side effects in initializers, mock services end-to-end. Next: connect Supabase after UI is final.",
-        date: .now.addingTimeInterval(-36_00),
-        pinned: false
+        date: .now.addingTimeInterval(-36_00)
     )
     .previewLayout(.sizeThatFits)
     .padding()

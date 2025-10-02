@@ -22,11 +22,16 @@ public struct IconButton: View {
     public var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .frame(width: size, height: size)
-                .foregroundStyle(theme.primary)
-                .background(theme.primary)
-                .clipShape(RoundedRectangle(cornerRadius: size.rounded(), style: .continuous))
-        }.buttonStyle(.plain)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size * 0.45, height: size * 0.45) // balanced icon size
+                .foregroundStyle(Color.white)                  // icon stays white
+                .padding(size * 0.25)                          // breathing room inside FAB
+                .background(theme.primary)                     // FAB background
+                .clipShape(Circle())                           // true circular FAB
+                .shadow(color: theme.primary.opacity(0.3), radius: 6, x: 0, y: 4) // subtle FAB shadow
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -37,7 +42,6 @@ public struct IconButton: View {
     }
     .padding()
     .useTheme()
-    .previewLayout(.sizeThatFits)
 }
 
 #Preview("Dark") {
@@ -48,5 +52,4 @@ public struct IconButton: View {
     .padding()
     .useTheme()
     .preferredColorScheme(.dark)
-    .previewLayout(.sizeThatFits)
 }

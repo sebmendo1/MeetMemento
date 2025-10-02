@@ -35,6 +35,9 @@ public struct ContentView: View {
     
     // Controls presentation of add entry sheet
     @State private var showAddEntry: Bool = false
+    
+    // Entry view model for managing journal entries
+    @StateObject private var entryViewModel = EntryViewModel()
 
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
@@ -104,10 +107,8 @@ public struct ContentView: View {
             }
             .sheet(isPresented: $showAddEntry) {
                 AddEntryView(
-                    onSave: { text, mood in
-                        // TODO: Save entry to database via EntryViewModel
-                        print("💾 Saving entry: \(text)")
-                        if let mood = mood { print("   Mood: \(mood)") }
+                    onSave: { text in
+                        entryViewModel.createEntry(title: "", text: text)
                         showAddEntry = false
                     },
                     onCancel: { showAddEntry = false }
