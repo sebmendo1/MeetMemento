@@ -31,7 +31,8 @@ private enum AppTab: String, CaseIterable, Identifiable, Hashable, LabeledTab {
 
 public struct ContentView: View {
     // Bottom tab selection drives which screen is shown
-    @State private var bottomSelection: AppTab = .journal    
+    @State private var bottomSelection: AppTab = .journal
+    
     // Controls presentation of add entry sheet
     @State private var showAddEntry: Bool = false
 
@@ -59,27 +60,27 @@ public struct ContentView: View {
                     }
                 }
             }
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Sign Out") {
-                            Task {
-                                await authViewModel.signOut()
-                            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Sign Out") {
+                        Task {
+                            await authViewModel.signOut()
                         }
-                        .foregroundStyle(.red)
                     }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink {
-                            SettingsView()
-                                .useTheme()
-                                .useTypography()
-                                // AuthViewModel is already in environment from MeetMementoApp
-                        } label: {
-                            Image(systemName: "gear")
-                                .foregroundStyle(theme.primary)
-                        }
+                    .foregroundStyle(.red)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        SettingsView()
+                            .useTheme()
+                            .useTypography()
+                            // AuthViewModel is already in environment from MeetMementoApp
+                    } label: {
+                        Image(systemName: "gear")
+                            .foregroundStyle(theme.primary)
                     }
                 }
+            }
             // Bottom bar pinned to safe area
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 HStack(spacing: 12) {
@@ -94,15 +95,12 @@ public struct ContentView: View {
                     // Floating action button (56pt per HIG)
                     IconButton(systemImage: "plus") {
                         showAddEntry = true
-                        }
-                        .padding(.trailing, hPadding)
-                        .accessibilityLabel("New Entry")
+                    }
+                    .padding(.trailing, hPadding)
+                    .accessibilityLabel("New Entry")
                 }
                 .padding(.vertical, 10) // comfortable clearance from home indicator
                 .background(.clear)
-                
-
-                
             }
             .sheet(isPresented: $showAddEntry) {
                 AddEntryView(
@@ -116,7 +114,6 @@ public struct ContentView: View {
                 )
                 .useTheme()
                 .useTypography()
-            }
             }
         }
         .useTheme()
