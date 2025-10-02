@@ -31,7 +31,9 @@ private enum AppTab: String, CaseIterable, Identifiable, Hashable, LabeledTab {
 
 public struct ContentView: View {
     // Bottom tab selection drives which screen is shown
-    @State private var bottomSelection: AppTab = .journal
+    @State private var bottomSelection: AppTab = .journal    
+    // Controls presentation of add entry sheet
+    @State private var showAddEntry: Bool = false
 
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
@@ -90,25 +92,31 @@ public struct ContentView: View {
                     Spacer(minLength: 8)
 
                     // Floating action button (56pt per HIG)
-                    Button {
-                        // create new entry
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(theme.primaryForeground)
-                            .frame(width: 56, height: 56)
-                            .background(
-                                Circle()
-                                    .fill(theme.primary)
-                                    .shadow(color: .black.opacity(0.16), radius: 12, x: 0, y: 6)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.trailing, hPadding)
-                    .accessibilityLabel("New Entry")
+                    IconButton(systemImage: "plus") {
+                        showAddEntry = true
+                        }
+                        .padding(.trailing, hPadding)
+                        .accessibilityLabel("New Entry")
                 }
                 .padding(.vertical, 10) // comfortable clearance from home indicator
                 .background(.clear)
+                
+
+                
+            }
+            .sheet(isPresented: $showAddEntry) {
+                AddEntryView(
+                    onSave: { text, mood in
+                        // TODO: Save entry to database via EntryViewModel
+                        print("💾 Saving entry: \(text)")
+                        if let mood = mood { print("   Mood: \(mood)") }
+                        showAddEntry = false
+                    },
+                    onCancel: { showAddEntry = false }
+                )
+                .useTheme()
+                .useTypography()
+            }
             }
         }
         .useTheme()
