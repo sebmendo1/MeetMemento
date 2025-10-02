@@ -2,19 +2,35 @@ import SwiftUI
 
 /// A tiny, self-contained UI component with **pure inputs** so it can preview instantly
 /// without booting your app, networking, or hitting storage.
-struct JournalCard: View {
+public struct JournalCard: View {
     // MARK: - Inputs (pure data only)
-    let title: String
-    let excerpt: String
-    let date: Date
-    var pinned: Bool = false
+    public let title: String
+    public let excerpt: String
+    public let date: Date
+    public var pinned: Bool = false
 
     /// Optional actions (no-op by default so previews never depend on app state)
-    var onTap: (() -> Void)? = nil
-    var onPinToggle: (() -> Void)? = nil
+    public var onTap: (() -> Void)? = nil
+    public var onPinToggle: (() -> Void)? = nil
+    
+    public init(
+        title: String,
+        excerpt: String,
+        date: Date,
+        pinned: Bool = false,
+        onTap: (() -> Void)? = nil,
+        onPinToggle: (() -> Void)? = nil
+    ) {
+        self.title = title
+        self.excerpt = excerpt
+        self.date = date
+        self.pinned = pinned
+        self.onTap = onTap
+        self.onPinToggle = onPinToggle
+    }
 
     // MARK: - Body
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
             Text(excerpt)
