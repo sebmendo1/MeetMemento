@@ -9,9 +9,33 @@ import SwiftUI
 
 @main
 struct MeetMementoApp: App {
+    @StateObject private var authViewModel = AuthViewModel()
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            Group {
+                if authViewModel.isLoading {
+                    // Show loading screen while checking auth state
+                    LoadingView()
+                        .useTheme()
+                        .useTypography()
+                } else if authViewModel.isAuthenticated {
+                    // User is authenticated - show main app
+                    ContentView()
+                        .environmentObject(authViewModel)
+                } else {
+                    // User not authenticated - show welcome/login
+                    WelcomeView(onNext: {
+                        // Optional: handle "Get Started" if you want onboarding
+                    })
+                    .useTheme()
+                    .useTypography()
+                    .environmentObject(authViewModel)
+                }
+            }
+            .onOpenURL { url in
+                Task { try? await AuthService.shared.handleRedirectURL(url) }
+            }
         }
     }
 }

@@ -1,0 +1,88 @@
+//
+//  BottomTab.swift
+//  MeetMemento
+//
+//  Created by Sebastian Mendo on 10/1/25.
+//
+
+import SwiftUI
+
+/// A single tab with icon + label that can render selected/unselected states.
+public struct TabPill: View {
+    public let title: String
+    public let systemImage: String
+    public let isSelected: Bool
+    public var onTap: (() -> Void)?
+
+    @Environment(\.theme) private var theme
+    @Environment(\.typography) private var type
+
+    public init(
+        title: String,
+        systemImage: String,
+        isSelected: Bool,
+        onTap: (() -> Void)? = nil
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.isSelected = isSelected
+        self.onTap = onTap
+    }
+
+    public var body: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onTap?()
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 16, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(isSelected ? theme.accent : theme.foreground)
+
+                Text(title)
+                    .font(type.button)
+                    .foregroundStyle(isSelected ? theme.accent : theme.foreground)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .contentShape(RoundedRectangle(cornerRadius: theme.radius.round))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+// MARK: - Previews
+
+struct TabPill_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            // Light
+            VStack(spacing: 16) {
+                TabPill(title: "Journal", systemImage: "book.closed.fill", isSelected: true)
+                TabPill(title: "Insights", systemImage: "sparkles", isSelected: false)
+            }
+            .padding()
+            .background(Theme.light.background)
+            .useTheme()
+            .useTypography()
+            .previewDisplayName("TabPill • Light")
+            .preferredColorScheme(.light)
+
+            // Dark
+            VStack(spacing: 16) {
+                TabPill(title: "Journal", systemImage: "book.closed.fill", isSelected: false)
+                TabPill(title: "Insights", systemImage: "sparkles", isSelected: true)
+            }
+            .padding()
+            .background(Theme.dark.background)
+            .useTheme()
+            .useTypography()
+            .previewDisplayName("TabPill • Dark")
+            .preferredColorScheme(.dark)
+        }
+        .previewLayout(.sizeThatFits)
+    }
+}
