@@ -83,16 +83,6 @@
 		A5296C8F2E8D9B15004F65BE /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		A5296C9E2E8D9B15004F65BE /* Exceptions for "Sign In with Apple" folder in "Sign In with Apple" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = A5296C8C2E8D9B15004F65BE /* Sign In with Apple */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A52219832E8E07C5009AE278 /* UIPlaygroundTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -121,9 +111,6 @@
 		};
 		A5296C912E8D9B15004F65BE /* Sign In with Apple */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				A5296C9E2E8D9B15004F65BE /* Exceptions for "Sign In with Apple" folder in "Sign In with Apple" target */,
-			);
 			path = "Sign In with Apple";
 			sourceTree = "<group>";
 		};
