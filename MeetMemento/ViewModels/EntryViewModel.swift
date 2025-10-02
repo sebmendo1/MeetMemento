@@ -16,7 +16,8 @@ class EntryViewModel: ObservableObject {
     @Published var errorMessage: String?
     
     init() {
-        loadMockEntries()
+        // Start with empty state - no mock entries
+        // Users will create their own entries
     }
     
     // MARK: - CRUD Operations
@@ -67,9 +68,9 @@ class EntryViewModel: ObservableObject {
         isLoading = false
     }
     
-    // MARK: - Mock Data
+    // MARK: - Mock Data (for testing/previews only)
     
-    private func loadMockEntries() {
+    func loadMockEntries() {
         entries = Entry.sampleEntries
     }
 }

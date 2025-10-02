@@ -129,8 +129,18 @@ public struct JournalView: View {
 }
 
 #Preview("Journal • With Entries") {
-    JournalView()
-        .environmentObject(EntryViewModel())
+    struct PreviewWrapper: View {
+        @StateObject var viewModel = EntryViewModel()
+        
+        var body: some View {
+            JournalView()
+                .environmentObject(viewModel)
+                .onAppear {
+                    viewModel.loadMockEntries() // Load sample data for preview only
+                }
+        }
+    }
+    return PreviewWrapper()
         .useTheme()
         .useTypography()
 }
