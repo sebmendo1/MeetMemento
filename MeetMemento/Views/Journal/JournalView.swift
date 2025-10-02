@@ -9,7 +9,7 @@ import SwiftUI
 
 public struct JournalView: View {
     @State private var topSelection: JournalTopTab = .yourEntries
-    @StateObject private var entryViewModel = EntryViewModel()
+    @EnvironmentObject var entryViewModel: EntryViewModel
     @State private var selectedEntry: Entry?
     @State private var showDeleteConfirmation: Bool = false
     @State private var entryToDelete: Entry?
@@ -113,10 +113,13 @@ public struct JournalView: View {
 
 #Preview("Journal • Empty") {
     struct PreviewWrapper: View {
+        @StateObject var viewModel = EntryViewModel()
+        
         var body: some View {
             JournalView()
+                .environmentObject(viewModel)
                 .onAppear {
-                    // Empty state
+                    viewModel.entries = [] // Empty state
                 }
         }
     }
@@ -127,6 +130,7 @@ public struct JournalView: View {
 
 #Preview("Journal • With Entries") {
     JournalView()
+        .environmentObject(EntryViewModel())
         .useTheme()
         .useTypography()
 }

@@ -36,7 +36,7 @@ public struct ContentView: View {
     // Controls presentation of add entry sheet
     @State private var showAddEntry: Bool = false
     
-    // Entry view model for managing journal entries
+    // Entry view model for managing journal entries (shared across views)
     @StateObject private var entryViewModel = EntryViewModel()
 
     @Environment(\.theme) private var theme
@@ -58,6 +58,7 @@ public struct ContentView: View {
                     switch bottomSelection {
                     case .journal:
                         JournalView()
+                            .environmentObject(entryViewModel) // Share the view model
                     case .insights:
                         InsightsView()
                     }
