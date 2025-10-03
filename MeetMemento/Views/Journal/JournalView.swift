@@ -14,18 +14,39 @@ public struct JournalView: View {
     @State private var showDeleteConfirmation: Bool = false
     @State private var entryToDelete: Entry?
     
+    let onSettingsTapped: () -> Void
+    
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
     
-    public init() {}
+    public init(onSettingsTapped: @escaping () -> Void = {}) {
+        self.onSettingsTapped = onSettingsTapped
+    }
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Top navigation with tabs
-            TopNav(variant: .tabs, selection: $topSelection)
-                .useTheme()
-                .useTypography()
-                .padding(.top, 12)
+            // Custom header with tabs and settings button
+            HStack(alignment: .center, spacing: 12) {
+                // Top navigation with tabs
+                TopNav(variant: .tabs, selection: $topSelection)
+                    .useTheme()
+                    .useTypography()
+                
+                Spacer()
+                
+                // Settings menu button (aligned with tabs)
+                Button(action: onSettingsTapped) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(theme.foreground)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Settings")
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
             
             // Content area - switches based on selected tab
             switch topSelection {

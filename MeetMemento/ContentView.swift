@@ -36,6 +36,9 @@ public struct ContentView: View {
     // Controls presentation of add entry sheet
     @State private var showAddEntry: Bool = false
     
+    // Controls presentation of settings
+    @State private var showSettings: Bool = false
+    
     // Entry view model for managing journal entries (shared across views)
     @StateObject private var entryViewModel = EntryViewModel()
 
@@ -57,31 +60,10 @@ public struct ContentView: View {
                 Group {
                     switch bottomSelection {
                     case .journal:
-                        JournalView()
+                        JournalView(onSettingsTapped: { showSettings = true })
                             .environmentObject(entryViewModel) // Share the view model
                     case .insights:
                         InsightsView()
-                    }
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Sign Out") {
-                        Task {
-                            await authViewModel.signOut()
-                        }
-                    }
-                    .foregroundStyle(.red)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        SettingsView()
-                            .useTheme()
-                            .useTypography()
-                            // AuthViewModel is already in environment from MeetMementoApp
-                    } label: {
-                        Image(systemName: "gear")
-                            .foregroundStyle(theme.primary)
                     }
                 }
             }
@@ -116,6 +98,11 @@ public struct ContentView: View {
                 )
                 .useTheme()
                 .useTypography()
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+                    .useTheme()
+                    .useTypography()
             }
         }
         .useTheme()
