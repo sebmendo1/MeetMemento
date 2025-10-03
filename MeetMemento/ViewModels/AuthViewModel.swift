@@ -13,14 +13,20 @@ import Supabase
 class AuthViewModel: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: Supabase.User?
-    @Published var isLoading = true
+    @Published var isLoading = false  // Start optimistically (non-blocking UI)
     
     init() {
-        // Check authentication state on init
-        Task {
+        // Check authentication state in background (non-blocking)
+        // This allows the UI to render immediately
+        Task(priority: .userInitiated) {
             await checkAuthState()
+            
+            // Set up auth observer after initial check
+            await setupAuthObserver()
         }
-
+    }
+    
+    private func setupAuthObserver() async {
         // Observe auth changes from Supabase (handles OAuth browser returns)
         AuthService.shared.observeAuthChanges { [weak self] _ in
             guard let self else { return }
@@ -34,7 +40,10 @@ class AuthViewModel: ObservableObject {
         isLoading = true
         
         do {
-            currentUser = try await SupabaseService.shared.getCurrentUser()
+            // Add timeout to prevent indefinite hanging
+            currentUser = try await withTimeout(seconds: 5) {
+                try await SupabaseService.shared.getCurrentUser()
+            }
             isAuthenticated = currentUser != nil
             
             if let user = currentUser {
@@ -52,6 +61,34 @@ class AuthViewModel: ObservableObject {
         }
         
         isLoading = false
+    }
+    
+    // MARK: - Timeout Helper
+    
+    private func withTimeout<T>(
+        seconds: TimeInterval,
+        operation: @escaping () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw TimeoutError()
+            }
+            
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
+    
+    private struct TimeoutError: Error {
+        var localizedDescription: String {
+            "Authentication check timed out"
+        }
     }
     
     // MARK: - Sign In
