@@ -27,11 +27,12 @@ public struct JournalView: View {
                 .useTypography()
                 .padding(.top, 12)
             
-            // Content area
-            if entryViewModel.entries.isEmpty {
-                emptyState
-            } else {
-                entriesList
+            // Content area - switches based on selected tab
+            switch topSelection {
+            case .yourEntries:
+                yourEntriesContent
+            case .followUps:
+                followUpsContent
             }
         }
         .background(theme.background.ignoresSafeArea())
@@ -54,22 +55,68 @@ public struct JournalView: View {
         }
     }
     
+    // MARK: - Tab Content Views
+    
+    /// "Your Entries" tab - Shows all journal entries
+    private var yourEntriesContent: some View {
+        Group {
+            if entryViewModel.entries.isEmpty {
+                emptyState(
+                    icon: "book.closed.fill",
+                    title: "No journal entries yet",
+                    message: "Start writing your first entry to see it here."
+                )
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(entryViewModel.entries) { entry in
+                            JournalCard(
+                                title: entry.displayTitle,
+                                excerpt: entry.excerpt,
+                                date: entry.createdAt,
+                                onTap: {
+                                    selectedEntry = entry
+                                },
+                                onMoreTapped: {
+                                    entryToDelete = entry
+                                    showDeleteConfirmation = true
+                                }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                }
+            }
+        }
+    }
+    
+    /// "Follow-ups" tab - Placeholder for future follow-up functionality
+    private var followUpsContent: some View {
+        emptyState(
+            icon: "arrow.turn.up.right",
+            title: "No follow-ups yet",
+            message: "Follow-up reminders will appear here."
+        )
+    }
+    
     // MARK: - Subviews
     
-    private var emptyState: some View {
+    /// Reusable empty state view
+    private func emptyState(icon: String, title: String, message: String) -> some View {
         VStack(spacing: 12) {
             Spacer()
             
-            Image(systemName: "book.closed.fill")
+            Image(systemName: icon)
                 .font(.system(size: 36))
                 .foregroundStyle(theme.mutedForeground)
             
-            Text("No journal entries yet")
+            Text(title)
                 .font(type.h3)
                 .fontWeight(.semibold)
                 .foregroundStyle(theme.foreground)
             
-            Text("Start writing your first entry to see it here.")
+            Text(message)
                 .font(type.body)
                 .foregroundStyle(theme.mutedForeground)
             
@@ -77,35 +124,6 @@ public struct JournalView: View {
         }
         .multilineTextAlignment(.center)
         .padding(.horizontal, 24)
-    }
-    
-    private var entriesList: some View {
-        ScrollView {
-            LazyVStack(spacing: 12) {
-                ForEach(filteredEntries) { entry in
-                    JournalCard(
-                        title: entry.displayTitle,
-                        excerpt: entry.excerpt,
-                        date: entry.createdAt,
-                        onTap: {
-                            selectedEntry = entry
-                        },
-                        onMoreTapped: {
-                            entryToDelete = entry
-                            showDeleteConfirmation = true
-                        }
-                    )
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-    }
-    
-    private var filteredEntries: [Entry] {
-        // TODO: Filter by topSelection (Your Entries vs Follow-ups)
-        // For now, return all entries
-        entryViewModel.entries
     }
 }
 
