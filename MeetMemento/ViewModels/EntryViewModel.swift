@@ -23,7 +23,7 @@ class EntryViewModel: ObservableObject {
     // MARK: - CRUD Operations
     
     /// Creates a new entry and adds it to the list.
-    func createEntry(title: String = "", text: String) {
+    func createEntry(title: String, text: String) {
         let entry = Entry(
             title: title,
             text: text
@@ -32,6 +32,8 @@ class EntryViewModel: ObservableObject {
         
         // TODO: Save to Supabase
         print("✅ Created entry: \(entry.id)")
+        print("   Title: \(title.isEmpty ? "(Untitled)" : title)")
+        print("   Text: \(text.prefix(50))...")
     }
     
     /// Updates an existing entry.

@@ -29,12 +29,18 @@ private enum AppTab: String, CaseIterable, Identifiable, Hashable, LabeledTab {
     }
 }
 
+// MARK: - Navigation routes for journal entry editor
+public enum EntryRoute: Hashable {
+    case create
+    case edit(Entry)
+}
+
 public struct ContentView: View {
     // Bottom tab selection drives which screen is shown
     @State private var bottomSelection: AppTab = .journal
     
-    // Controls presentation of add entry sheet
-    @State private var showAddEntry: Bool = false
+    // Navigation path for entry editor
+    @State private var navigationPath = NavigationPath()
     
     // Controls presentation of settings
     @State private var showSettings: Bool = false
@@ -52,7 +58,7 @@ public struct ContentView: View {
     public init() {}
 
     public var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 theme.background.ignoresSafeArea()
 
@@ -60,8 +66,13 @@ public struct ContentView: View {
                 Group {
                     switch bottomSelection {
                     case .journal:
-                        JournalView(onSettingsTapped: { showSettings = true })
-                            .environmentObject(entryViewModel) // Share the view model
+                        JournalView(
+                            onSettingsTapped: { showSettings = true },
+                            onNavigateToEntry: { route in
+                                navigationPath.append(route)
+                            }
+                        )
+                        .environmentObject(entryViewModel) // Share the view model
                     case .insights:
                         InsightsView()
                     }
@@ -80,7 +91,7 @@ public struct ContentView: View {
 
                     // Floating action button (56pt per HIG)
                     IconButton(systemImage: "plus") {
-                        showAddEntry = true
+                        navigationPath.append(EntryRoute.create)
                     }
                     .padding(.trailing, hPadding)
                     .accessibilityLabel("New Entry")
@@ -88,16 +99,22 @@ public struct ContentView: View {
                 .padding(.vertical, 10) // comfortable clearance from home indicator
                 .background(.clear)
             }
-            .sheet(isPresented: $showAddEntry) {
-                AddEntryView(
-                    onSave: { text in
-                        entryViewModel.createEntry(title: "", text: text)
-                        showAddEntry = false
-                    },
-                    onCancel: { showAddEntry = false }
-                )
-                .useTheme()
-                .useTypography()
+            .navigationDestination(for: EntryRoute.self) { route in
+                switch route {
+                case .create:
+                    AddEntryView(entry: nil) { title, text in
+                        entryViewModel.createEntry(title: title, text: text)
+                        navigationPath.removeLast()
+                    }
+                case .edit(let entry):
+                    AddEntryView(entry: entry) { title, text in
+                        var updated = entry
+                        updated.title = title
+                        updated.text = text
+                        entryViewModel.updateEntry(updated)
+                        navigationPath.removeLast()
+                    }
+                }
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()

@@ -8,15 +8,15 @@
 import Foundation
 
 /// Represents a journal entry with title, text, and timestamps.
-struct Entry: Identifiable, Codable, Equatable {
-    let id: UUID
-    var title: String
-    var text: String
-    var createdAt: Date
-    var updatedAt: Date
+public struct Entry: Identifiable, Codable, Equatable, Hashable {
+    public let id: UUID
+    public var title: String
+    public var text: String
+    public var createdAt: Date
+    public var updatedAt: Date
     
     /// Creates a new entry with default values.
-    init(
+    public init(
         id: UUID = UUID(),
         title: String = "",
         text: String,
@@ -31,7 +31,7 @@ struct Entry: Identifiable, Codable, Equatable {
     }
     
     /// Short excerpt of the entry text for display in cards.
-    var excerpt: String {
+    public var excerpt: String {
         let maxLength = 120
         if text.count > maxLength {
             return String(text.prefix(maxLength)) + "..."
@@ -40,7 +40,7 @@ struct Entry: Identifiable, Codable, Equatable {
     }
     
     /// Display title, or "Untitled" if empty.
-    var displayTitle: String {
+    public var displayTitle: String {
         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? "Untitled"
             : title

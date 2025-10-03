@@ -10,17 +10,21 @@ import SwiftUI
 public struct JournalView: View {
     @State private var topSelection: JournalTopTab = .yourEntries
     @EnvironmentObject var entryViewModel: EntryViewModel
-    @State private var selectedEntry: Entry?
     @State private var showDeleteConfirmation: Bool = false
     @State private var entryToDelete: Entry?
     
     let onSettingsTapped: () -> Void
+    let onNavigateToEntry: (EntryRoute) -> Void
     
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
     
-    public init(onSettingsTapped: @escaping () -> Void = {}) {
+    public init(
+        onSettingsTapped: @escaping () -> Void = {},
+        onNavigateToEntry: @escaping (EntryRoute) -> Void = { _ in }
+    ) {
         self.onSettingsTapped = onSettingsTapped
+        self.onNavigateToEntry = onNavigateToEntry
     }
     
     public var body: some View {
@@ -59,11 +63,6 @@ public struct JournalView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
         }
         .background(theme.background.ignoresSafeArea())
-        .sheet(item: $selectedEntry) { entry in
-            JournalPageView(entry: entry, entryViewModel: entryViewModel)
-                .useTheme()
-                .useTypography()
-        }
         .confirmationDialog(
             "Delete this entry?",
             isPresented: $showDeleteConfirmation,
@@ -98,7 +97,7 @@ public struct JournalView: View {
                                 excerpt: entry.excerpt,
                                 date: entry.createdAt,
                                 onTap: {
-                                    selectedEntry = entry
+                                    onNavigateToEntry(.edit(entry))
                                 },
                                 onMoreTapped: {
                                     entryToDelete = entry
