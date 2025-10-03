@@ -48,13 +48,15 @@ public struct JournalView: View {
             .padding(.top, 12)
             .padding(.bottom, 8)
             
-            // Content area - switches based on selected tab
-            switch topSelection {
-            case .yourEntries:
+            // Content area - swipeable between tabs
+            TabView(selection: $topSelection) {
                 yourEntriesContent
-            case .followUps:
+                    .tag(JournalTopTab.yourEntries)
+                
                 followUpsContent
+                    .tag(JournalTopTab.followUps)
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
         }
         .background(theme.background.ignoresSafeArea())
         .sheet(item: $selectedEntry) { entry in
