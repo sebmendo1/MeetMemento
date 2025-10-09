@@ -33,6 +33,7 @@ private enum AppTab: String, CaseIterable, Identifiable, Hashable, LabeledTab {
 public enum EntryRoute: Hashable {
     case create
     case edit(Entry)
+    case followUp(String) // String is the follow-up question
 }
 
 public struct ContentView: View {
@@ -77,28 +78,16 @@ public struct ContentView: View {
                         InsightsView()
                     }
                 }
-            }
-            // Bottom bar pinned to safe area
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                HStack(spacing: 12) {
-                    // Centered segmented switch (drives which view is shown)
-                    TabSwitcher<AppTab>(selection: $bottomSelection)
-                        .useTypography()
-                        .frame(width: 224)
-                        .padding(.leading, hPadding)
-
-                    Spacer(minLength: 8)
-
-                    // Floating action button (56pt per HIG)
-                    IconButton(systemImage: "plus") {
+                
+                // Bottom navigation with TabSwitcher and FAB
+                BottomNavigation(
+                    tabSelection: $bottomSelection,
+                    onJournalCreate: {
                         navigationPath.append(EntryRoute.create)
                     }
-                    .padding(.trailing, hPadding)
-                    .accessibilityLabel("New Entry")
-                }
-                .padding(.vertical, 10) // comfortable clearance from home indicator
-                .background(.clear)
+                )
             }
+            .ignoresSafeArea(.all, edges: .bottom)
             .navigationDestination(for: EntryRoute.self) { route in
                 switch route {
                 case .create:
@@ -114,6 +103,11 @@ public struct ContentView: View {
                         entryViewModel.updateEntry(updated)
                         navigationPath.removeLast()
                     }
+                case .followUp(let question):
+                    AddEntryView(entry: nil, followUpQuestion: question) { title, text in
+                        entryViewModel.createFollowUpEntry(title: title, text: text)
+                        navigationPath.removeLast()
+                    }
                 }
             }
             .sheet(isPresented: $showSettings) {
@@ -124,6 +118,11 @@ public struct ContentView: View {
         }
         .useTheme()
         .useTypography()
+        .task {
+            // Preload entries immediately when ContentView appears
+            // This ensures data is ready before JournalView is shown
+            await entryViewModel.loadEntriesIfNeeded()
+        }
     }
 }
 

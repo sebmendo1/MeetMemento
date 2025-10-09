@@ -13,17 +13,17 @@ import Supabase
 class AuthViewModel: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: Supabase.User?
-    @Published var isLoading = false  // Start optimistically (non-blocking UI)
+    @Published var isLoading = false
+    private var authCheckInProgress = false  // NEW: Prevent duplicate checks
     
     init() {
-        // Check authentication state in background (non-blocking)
-        // This allows the UI to render immediately
-        Task(priority: .userInitiated) {
-            await checkAuthState()
-            
-            // Set up auth observer after initial check
-            await setupAuthObserver()
-        }
+        // NO async work in init - prevents SIGKILL crashes
+    }
+    
+    /// Initialize auth state after UI renders
+    func initializeAuth() async {
+        await checkAuthState()
+        await setupAuthObserver()
     }
     
     private func setupAuthObserver() async {
@@ -37,32 +37,41 @@ class AuthViewModel: ObservableObject {
     // MARK: - Auth State Management
     
     func checkAuthState() async {
-        isLoading = true
+        // Prevent duplicate simultaneous checks
+        guard !authCheckInProgress else { return }
+        authCheckInProgress = true
+        
+        // Only show loading if we don't already know the auth state
+        // This prevents UI flickering when re-checking after login
+        let shouldShowLoading = !isAuthenticated && currentUser == nil
+        if shouldShowLoading {
+            isLoading = true
+        }
         
         do {
             // Add timeout to prevent indefinite hanging
-            currentUser = try await withTimeout(seconds: 5) {
+            currentUser = try await withTimeout(seconds: 2) {
                 try await SupabaseService.shared.getCurrentUser()
             }
             isAuthenticated = currentUser != nil
             
             if let user = currentUser {
-                AppLogger.log("User authenticated: \(user.email ?? "Unknown")", 
+                AppLogger.log("User authenticated: \(user.email ?? "Unknown")",
                              category: AppLogger.general)
             } else {
                 AppLogger.log("No authenticated user", category: AppLogger.general)
             }
         } catch {
-            AppLogger.log("Auth check error: \(error.localizedDescription)", 
-                         category: AppLogger.general, 
+            AppLogger.log("Auth check error: \(error.localizedDescription)",
+                         category: AppLogger.general,
                          type: .error)
             isAuthenticated = false
             currentUser = nil
         }
         
         isLoading = false
+        authCheckInProgress = false
     }
-    
     // MARK: - Timeout Helper
     
     private func withTimeout<T>(
@@ -95,7 +104,16 @@ class AuthViewModel: ObservableObject {
     
     func signIn(email: String, password: String) async throws {
         try await SupabaseService.shared.signIn(email: email, password: password)
-        await checkAuthState()
+        
+        // Optimistically set state without another network call
+        // The auth observer will update if needed
+        do {
+            currentUser = try await SupabaseService.shared.getCurrentUser()
+            isAuthenticated = currentUser != nil
+        } catch {
+            // Fallback to full check if quick fetch fails
+            await checkAuthState()
+        }
     }
     
     // MARK: - Sign Up

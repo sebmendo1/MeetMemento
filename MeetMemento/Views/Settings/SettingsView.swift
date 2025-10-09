@@ -10,6 +10,7 @@ struct SettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var showLogoutConfirmation = false
     @State private var isLoggingOut = false
+    @State private var testResult = ""
     
     var body: some View {
         NavigationView {
@@ -52,6 +53,23 @@ struct SettingsView: View {
                             Text("Test Supabase Connection")
                         }
                     }
+                    
+                    Button {
+                        testEntryLoading()
+                    } label: {
+                        HStack {
+                            Image(systemName: "doc.text")
+                                .foregroundStyle(theme.primary)
+                            Text("Test Entry Loading")
+                        }
+                    }
+                    
+                    if !testResult.isEmpty {
+                        Text(testResult)
+                            .font(.caption)
+                            .foregroundStyle(theme.mutedForeground)
+                            .padding(.vertical, 4)
+                    }
                 }
                 
                 // Add your settings sections here
@@ -83,6 +101,40 @@ struct SettingsView: View {
             
             await MainActor.run {
                 isLoggingOut = false
+            }
+        }
+    }
+    
+    private func testEntryLoading() {
+        testResult = "Testing..."
+        
+        Task {
+            do {
+                // Test authentication first
+                let user = try await SupabaseService.shared.getCurrentUser()
+                print("✅ User authenticated: \(user?.email ?? "Unknown")")
+                
+                // Test fetching entries
+                let entries = try await SupabaseService.shared.fetchEntries()
+                print("✅ Fetched \(entries.count) entries")
+                
+                await MainActor.run {
+                    if let user = user {
+                        testResult = "✅ Success! User: \(user.email ?? "Unknown"), Found \(entries.count) entries"
+                    } else {
+                        testResult = "⚠️ No user authenticated, but connection works"
+                    }
+                }
+            } catch {
+                print("❌ Test failed: \(error)")
+                await MainActor.run {
+                    let errorDesc = error.localizedDescription
+                    if errorDesc.contains("data couldn't be read") || errorDesc.contains("missing") {
+                        testResult = "❌ Schema Error: \(errorDesc)\n\nCheck console for detailed logs"
+                    } else {
+                        testResult = "❌ Failed: \(errorDesc)"
+                    }
+                }
             }
         }
     }

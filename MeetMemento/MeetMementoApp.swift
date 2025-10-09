@@ -14,12 +14,7 @@ struct MeetMementoApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if authViewModel.isLoading {
-                    // Show loading screen while checking auth state
-                    LoadingView()
-                        .useTheme()
-                        .useTypography()
-                } else if authViewModel.isAuthenticated {
+                if authViewModel.isAuthenticated {
                     // User is authenticated - show main app
                     ContentView()
                         .environmentObject(authViewModel)
@@ -32,6 +27,10 @@ struct MeetMementoApp: App {
                     .useTypography()
                     .environmentObject(authViewModel)
                 }
+            }
+            .task {
+                // Initialize auth AFTER UI renders to prevent SIGKILL crashes
+                await authViewModel.initializeAuth()
             }
             .onOpenURL { url in
                 Task { try? await AuthService.shared.handleRedirectURL(url) }

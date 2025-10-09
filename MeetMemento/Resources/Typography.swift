@@ -5,6 +5,8 @@ import SwiftUI
 // Line-height ~1.5 is approximated via .lineSpacing.
 
 public struct Typography {
+    public let xs: CGFloat
+    public let s: CGFloat
     public let base: CGFloat      // corresponds to var(--text-base) ~ 16
     public let lg: CGFloat        // var(--text-lg)
     public let xl: CGFloat        // var(--text-xl)
@@ -12,12 +14,16 @@ public struct Typography {
     public let weightNormal: Font.Weight
     public let weightMedium: Font.Weight
 
-    public init(base: CGFloat = 16,
+    public init(xs: CGFloat = 12,
+                s: CGFloat = 14,
+                base: CGFloat = 16,
                 lg: CGFloat = 18,
                 xl: CGFloat = 20,
                 xxl: CGFloat = 24,
                 weightNormal: Font.Weight = .regular,
                 weightMedium: Font.Weight = .medium) {
+        self.xs = xs
+        self.s = s
         self.base = base
         self.lg = lg
         self.xl = xl
@@ -34,8 +40,8 @@ public struct Typography {
     public var h2: Font { .system(size: xl,  weight: weightMedium) }
     public var h3: Font { .system(size: lg,  weight: weightMedium) }
     public var h4: Font { .system(size: base,weight: weightMedium) }
-    public var body: Font { .system(size: base, weight: weightNormal) }
-    public var label: Font { .system(size: base, weight: weightMedium) }
+    public var body: Font { .system(size: s, weight: weightNormal) }
+    public var label: Font { .system(size: xs, weight: weightMedium) }
     public var button: Font { .system(size: base, weight: weightMedium) }
     public var input: Font { .system(size: base, weight: weightNormal) }
 

@@ -11,30 +11,46 @@ struct JournalCard: View {
     /// Optional actions (no-op by default so previews never depend on app state)
     var onTap: (() -> Void)? = nil
     var onMoreTapped: (() -> Void)? = nil
+    
+    // MARK: - State
+    @State private var isPressed = false
 
     // MARK: - Body
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            header
-            Text(excerpt)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
-                .multilineTextAlignment(.leading)
-            footer
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                Text(excerpt)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                footer
+            }
+            .padding(.vertical, 16)
+            
+            Divider()
+                .background(Color(hex: "#E2E8F0")) // mid-gray token, around Gray / 300
+            
         }
-        .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(.background)
-                .shadow(radius: 1, y: 1)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(.quaternary)
-        )
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .animation(.easeInOut(duration: 0.1), value: isPressed)
         .contentShape(Rectangle())
-        .onTapGesture { onTap?() }
+        .onTapGesture { 
+            // Add haptic feedback for better user experience
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+            onTap?() 
+        }
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = pressing
+            }
+        }, perform: {})
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -80,10 +96,6 @@ private struct MoreButton: View {
             Image(systemName: "ellipsis")
                 .imageScale(.medium)
                 .padding(6)
-                .background(
-                    Circle()
-                        .fill(Color.secondary.opacity(0.12))
-                )
         }
         .buttonStyle(.plain)
         .accessibilityLabel("More options")
@@ -111,10 +123,12 @@ private struct JournalCardHarness: View {
             onMoreTapped: { /* present a mock sheet/menu in sandbox if you want */ }
         )
         .previewLayout(.sizeThatFits)
-        .padding()
+        .frame(maxWidth: .infinity) // allow card to stretch
         .background(Color(uiColor: .systemBackground))
     }
 }
+
+
 
 #Preview("JournalCard · light") {
     JournalCardHarness()
@@ -127,6 +141,6 @@ private struct JournalCardHarness: View {
         excerpt: "What went well: shipped UI preview harnesses, stabilized Xcode canvas. What to improve: fewer side effects in initializers, mock services end-to-end. Next: connect Supabase after UI is final.",
         date: .now.addingTimeInterval(-36_00)
     )
-    .previewLayout(.sizeThatFits)
+    //.previewLayout(.sizeThatFits)
     .padding()
 }

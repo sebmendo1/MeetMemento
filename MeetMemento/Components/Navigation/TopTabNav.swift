@@ -13,13 +13,13 @@ public enum TopNavVariant {
 
 public enum JournalTopTab: String, CaseIterable, Identifiable, Hashable {
     case yourEntries
-    case followUps
+    case digDeeper
 
     public var id: String { rawValue }
     public var title: String {
         switch self {
         case .yourEntries: return "Your Entries"
-        case .followUps:   return "Follow-ups"
+        case .digDeeper:   return "Dig deeper"
         }
     }
 }
@@ -78,7 +78,7 @@ public struct TopNav: View {
     private var tabsContent: some View {
         HStack(spacing: labelSpacing) {
             tabLabel(.yourEntries)
-            tabLabel(.followUps)
+            tabLabel(.digDeeper)
         }
     }
 
@@ -87,11 +87,15 @@ public struct TopNav: View {
         let isSelected = (tab == selection)
 
         Button {
-            guard !isSelected else { return }
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.9, blendDuration: 0.05)) {
-                selection = tab
+            guard !isSelected else { 
+                print("🚫 Tab already selected: \(tab.title)")
+                return 
             }
+            print("👆 Tab clicked: \(tab.title), current selection: \(selection.title)")
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            // Update selection without animation wrapper to let TabView handle it
+            selection = tab
+            print("✅ Selection updated to: \(selection.title)")
         } label: {
             Text(tab.title)
                 .font(type.h3)

@@ -15,11 +15,14 @@ public struct InsightsView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Top navigation as a singleSelected state
-            TopNav(variant: .singleSelected, selection: .constant(.yourEntries))
-                .useTheme()
-                .useTypography()
-                .padding(.top, 12)
+            // Header with single selected state
+            Header(
+                variant: .singleSelected,
+                selection: .constant(.yourEntries),
+                onSettingsTapped: {
+                    // No settings action for insights view
+                }
+            )
 
             Spacer()
 

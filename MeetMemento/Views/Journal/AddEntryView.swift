@@ -24,15 +24,18 @@ public struct AddEntryView: View {
     }
     
     let entry: Entry? // nil for create, populated for edit
+    let followUpQuestion: String? // For follow-up entries
     let onSave: (_ title: String, _ text: String) -> Void
     
     public init(
         entry: Entry? = nil,
+        followUpQuestion: String? = nil,
         onSave: @escaping (_ title: String, _ text: String) -> Void
     ) {
         self.entry = entry
+        self.followUpQuestion = followUpQuestion
         self.onSave = onSave
-        _title = State(initialValue: entry?.title ?? "")
+        _title = State(initialValue: entry?.title ?? followUpQuestion ?? "")
         _text = State(initialValue: entry?.text ?? "")
     }
     
@@ -68,7 +71,7 @@ public struct AddEntryView: View {
     private var titleField: some View {
         TextField("", text: $title, axis: .vertical)
             .font(.system(size: 32, weight: .bold))
-            .foregroundStyle(theme.foreground)
+            .foregroundStyle(isFollowUpEntry ? theme.followUpGradientStart : theme.foreground)
             .focused($focusedField, equals: .title)
             .textInputAutocapitalization(.words)
             .submitLabel(.next)
@@ -80,6 +83,11 @@ public struct AddEntryView: View {
                     .font(.system(size: 32, weight: .bold))
                     .foregroundStyle(theme.mutedForeground.opacity(0.4))
             }
+    }
+    
+    /// Determines if this is a follow-up entry based on the follow-up question
+    private var isFollowUpEntry: Bool {
+        followUpQuestion != nil
     }
     
     private var bodyField: some View {
@@ -120,9 +128,8 @@ public struct AddEntryView: View {
     // MARK: - Actions
     
     private func setupInitialFocus() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            focusedField = title.isEmpty ? .title : .body
-        }
+        // Focus immediately for instant writing experience
+        focusedField = title.isEmpty ? .title : .body
     }
     
     private func save() {
@@ -134,11 +141,9 @@ public struct AddEntryView: View {
         isSaving = true
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         
-        // Save with a slight delay for UX smoothness
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            onSave(trimmedTitle, trimmedText)
-            isSaving = false
-        }
+        // Save immediately for instant feedback
+        onSave(trimmedTitle, trimmedText)
+        isSaving = false
     }
 }
 

@@ -71,6 +71,11 @@ struct Theme {
     let chart3: Color
     let chart4: Color
     let chart5: Color
+    
+    // Follow-up card gradient
+    let followUpGradientStart: Color
+    let followUpGradientEnd: Color
+    let followUpTagBackground: Color
 
     // Sidebar
     let sidebar: Color
@@ -113,6 +118,10 @@ struct Theme {
         chart3: Color(hex: "#104E64"),                   // oklch(0.398 0.07 227.392)
         chart4: Color(hex: "#FFB900"),                   // oklch(0.828 0.189 84.429)
         chart5: Color(hex: "#FE9A00"),                   // oklch(0.769 0.188 70.08)
+        
+        followUpGradientStart: Color(hex: "#8A2BE2"),    // Blue Violet
+        followUpGradientEnd: Color(hex: "#4B0082"),      // Indigo
+        followUpTagBackground: Color.white.opacity(0.2),
 
         sidebar: Color(hex: "#FAFAFA"),                  // oklch(0.985 0 0)
         sidebarForeground: Color(hex: "#0A0A0A"),        // oklch(0.145 0 0)
@@ -153,6 +162,10 @@ struct Theme {
         chart3: Color(hex: "#FE9A00"),                   // oklch(0.769 0.188 70.08)
         chart4: Color(hex: "#AD46FF"),                   // oklch(0.627 0.265 303.9)
         chart5: Color(hex: "#FF2056"),                   // oklch(0.645 0.246 16.439)
+        
+        followUpGradientStart: Color(hex: "#8A2BE2"),    // Blue Violet
+        followUpGradientEnd: Color(hex: "#4B0082"),      // Indigo
+        followUpTagBackground: Color.white.opacity(0.2),
 
         sidebar: Color(hex: "#171717"),                  // oklch(0.205 0 0)
         sidebarForeground: Color(hex: "#FAFAFA"),
