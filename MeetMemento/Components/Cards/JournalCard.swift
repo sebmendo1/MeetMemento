@@ -12,6 +12,9 @@ struct JournalCard: View {
     var onTap: (() -> Void)? = nil
     var onMoreTapped: (() -> Void)? = nil
     
+    // MARK: - Environment
+    @Environment(\.theme) private var theme
+    
     // MARK: - State
     @State private var isPressed = false
 
@@ -30,7 +33,7 @@ struct JournalCard: View {
             .padding(.vertical, 16)
             
             Divider()
-                .background(Color(hex: "#E2E8F0")) // mid-gray token, around Gray / 300
+                .background(theme.border) // Uses theme border color
             
         }
         .background(

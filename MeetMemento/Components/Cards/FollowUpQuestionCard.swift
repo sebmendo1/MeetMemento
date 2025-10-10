@@ -77,7 +77,7 @@ struct FollowUpQuestionCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(hex: "#dddddd"), lineWidth: 1)
+                .stroke(theme.border, lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(question.category.displayName): \(question.title)")
