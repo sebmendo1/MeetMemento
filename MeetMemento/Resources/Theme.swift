@@ -115,6 +115,14 @@ struct Theme {
     let followUpGradientStart: Color
     let followUpGradientEnd: Color
     let followUpTagBackground: Color
+    
+    // FAB (Floating Action Button) gradient
+    let fabGradientStart: Color
+    let fabGradientEnd: Color
+    
+    // Header text gradient (for H1, H2, H3 in Recoleta)
+    let headerGradientStart: Color
+    let headerGradientEnd: Color
 
     // Sidebar
     let sidebar: Color
@@ -167,6 +175,12 @@ struct Theme {
         followUpGradientEnd: PrimaryScale.primary700,    // #57219C - Deeper purple
         followUpTagBackground: BaseColors.white.opacity(0.2),
         
+        fabGradientStart: PrimaryScale.primary400,       // #9869D5 - Lighter purple for FAB
+        fabGradientEnd: PrimaryScale.primary600,         // #6125B1 - Darker purple for FAB
+        
+        headerGradientStart: PrimaryScale.primary500,    // #7B3EC9 - Main brand purple for headers
+        headerGradientEnd: PrimaryScale.primary700,      // #57219C - Deep purple for headers
+        
         sidebar: BaseColors.white,              // #FFFFFF - Sidebar background
         sidebarForeground: GrayScale.gray900,   // #1C2329 - Sidebar text
         sidebarPrimary: PrimaryScale.primary500,// #7B3EC9 - Sidebar primary
@@ -215,6 +229,12 @@ struct Theme {
         followUpGradientStart: PrimaryScale.primary300,  // #A77FDB - Lighter purple
         followUpGradientEnd: PrimaryScale.primary600,    // #6125B1 - Darker purple
         followUpTagBackground: BaseColors.white.opacity(0.15),
+        
+        fabGradientStart: PrimaryScale.primary400,       // #9869D5 - Lighter purple for FAB
+        fabGradientEnd: PrimaryScale.primary600,         // #6125B1 - Darker purple for FAB
+        
+        headerGradientStart: PrimaryScale.primary500,    // #7B3EC9 - Main brand purple for headers
+        headerGradientEnd: PrimaryScale.primary700,      // #57219C - Deep purple for headers
         
         sidebar: GrayScale.gray800,             // #2F3943 - Sidebar background
         sidebarForeground: GrayScale.gray50,    // #F9FBFC - Sidebar text

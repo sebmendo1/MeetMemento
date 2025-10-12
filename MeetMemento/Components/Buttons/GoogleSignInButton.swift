@@ -1,18 +1,16 @@
 import SwiftUI
 
 /// Google-branded Sign in with Google button (merged + robust)
-/// - Uses official “G” glyph on the left (asset name: `google_g_logo`)
-/// - Supports two heights: 48pt (default) and 40pt (Material HTML spec)
+/// - Uses official "G" glyph on the left (asset name: `google_g_logo`)
+/// - Height: 56px for consistent button sizing
 /// - Light (white) and Dark (black) variants
 /// - Pressed/hover overlays, disabled styling, centered label
 public struct GoogleSignInButton: View {
     public enum Scheme { case light, dark }
-    public enum Size { case material40, standard48 }
 
     // MARK: – Public API
     public let title: String
     public var scheme: Scheme = .light
-    public var size: Size = .standard48
     public var isEnabled: Bool = true
     public var action: () -> Void
 
@@ -20,8 +18,8 @@ public struct GoogleSignInButton: View {
     @State private var isHovered: Bool = false
 
     // MARK: – Sizing & spacing
-    private var height: CGFloat { size == .standard48 ? 48 : 40 }
-    private let cornerRadius: CGFloat = 4
+    private let height: CGFloat = 56
+    private let cornerRadius: CGFloat = 12
     private let borderWidth: CGFloat = 1
     private let iconSize: CGFloat = 20
     private let horizontalPadding: CGFloat = 12
@@ -79,12 +77,10 @@ public struct GoogleSignInButton: View {
     // MARK: – Init
     public init(title: String = "Sign in with Google",
                 scheme: Scheme = .light,
-                size: Size = .standard48,
                 isEnabled: Bool = true,
                 action: @escaping () -> Void) {
         self.title = title
         self.scheme = scheme
-        self.size = size
         self.isEnabled = isEnabled
         self.action = action
     }
@@ -203,7 +199,7 @@ private struct MergedGoogleStyle: ButtonStyle {
 // Hex helper exists globally in Theme. Removed local redeclaration to avoid collision.
 
 // MARK: – Previews
-#Preview("Light / 48") {
+#Preview("Light") {
     VStack(spacing: 16) {
         GoogleSignInButton(title: "Sign in with Google") { }
         GoogleSignInButton(title: "Sign in with Google", isEnabled: false) { }
@@ -212,7 +208,7 @@ private struct MergedGoogleStyle: ButtonStyle {
     .background(Color(white: 0.96))
 }
 
-#Preview("Dark / 48") {
+#Preview("Dark") {
     ZStack {
         Color.black.ignoresSafeArea()
         VStack(spacing: 16) {
@@ -221,13 +217,4 @@ private struct MergedGoogleStyle: ButtonStyle {
         }
         .padding()
     }
-}
-
-#Preview("Material / 40") {
-    VStack(spacing: 16) {
-        GoogleSignInButton(title: "Continue with Google", size: .material40) { }
-        GoogleSignInButton(title: "Continue with Google", size: .material40, isEnabled: false) { }
-    }
-    .padding()
-    .background(Color(white: 0.96))
 }

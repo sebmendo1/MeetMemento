@@ -38,8 +38,7 @@ public struct SignInView: View {
                     
                     Text("Welcome Back")
                         .font(type.h1)
-                        .fontWeight(.bold)
-                        .foregroundStyle(theme.foreground)
+                        .headerGradient()
                     
                     Text("Sign in to continue your journey")
                         .font(type.body)

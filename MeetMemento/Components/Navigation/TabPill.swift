@@ -34,18 +34,18 @@ public struct TabPill: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             onTap?()
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 2) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(isSelected ? theme.accent : theme.foreground)
 
                 Text(title)
-                    .font(type.button)
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(isSelected ? theme.accent : theme.foreground)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity)
             .contentShape(RoundedRectangle(cornerRadius: theme.radius.round))
         }
@@ -60,7 +60,7 @@ struct TabPill_Previews: PreviewProvider {
     static var previews: some View {
         Group {
             // Light
-            VStack(spacing: 16) {
+            HStack(spacing: 16) {
                 TabPill(title: "Journal", systemImage: "book.closed.fill", isSelected: true)
                 TabPill(title: "Insights", systemImage: "sparkles", isSelected: false)
             }

@@ -19,9 +19,12 @@ public struct InsightCard: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(title).h3(.init())
+                Text(title)
+                    .font(type.h3)
+                    .headerGradient()
                 Spacer()
-                Text(emoji).font(.title3)
+                Text(emoji)
+                    .font(type.h3)
             }
             Text(text).bodyText(.init())
                 .foregroundStyle(theme.cardForeground)
@@ -29,7 +32,7 @@ public struct InsightCard: View {
                 Divider().opacity(0.2)
                 Text(footer)
                     .foregroundStyle(theme.mutedForeground)
-                    .font(.system(size: type.base))
+                    .font(.system(size: type.bodyL))
             }
         }
         .padding(16)

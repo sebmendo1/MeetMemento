@@ -33,13 +33,13 @@ public struct AppleSignInButton: View {
                     .foregroundStyle(foreground)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .frame(height: 56)
             .background(background)
             .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(border, lineWidth: style == .whiteOutline ? 1 : 0)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
     }

@@ -24,29 +24,39 @@ public struct InsightsView: View {
                 }
             )
 
-            Spacer()
-
-            // Empty state placeholder
-            VStack(spacing: 12) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 36))
-                    .foregroundStyle(theme.mutedForeground)
-
-                Text("No insights yet")
-                    .font(type.h3)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(theme.foreground)
-
-                Text("Your insights will appear here after journaling.")
-                    .font(type.body)
-                    .foregroundStyle(theme.mutedForeground)
-            }
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 24)
-
-            Spacer()
+            // Empty state placeholder - positioned exactly like JournalView empty state
+            emptyState(
+                icon: "sparkles",
+                title: "No insights yet",
+                message: "Your insights will appear here after journaling."
+            )
+            .padding(.top, -40) // Move up 16px to match JournalView position exactly
         }
         .background(theme.background.ignoresSafeArea())
+    }
+    
+    /// Reusable empty state view - matches JournalView exactly
+    private func emptyState(icon: String, title: String, message: String) -> some View {
+        VStack(spacing: 12) {
+            Spacer()
+            
+            Image(systemName: icon)
+                .font(.system(size: 36))
+                .headerGradient()
+            
+            Text(title)
+                .font(type.h3)
+                .fontWeight(.semibold)
+                .headerGradient()
+            
+            Text(message)
+                .font(type.body)
+                .foregroundStyle(theme.mutedForeground)
+            
+            Spacer()
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 16)
     }
 }
 

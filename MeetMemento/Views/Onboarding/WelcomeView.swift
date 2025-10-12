@@ -27,28 +27,25 @@ public struct WelcomeView: View {
 
     public var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
+            VStack(spacing: 12) {
                 Spacer()
 
-                // App logo or placeholder icon
-                Image(systemName: "sparkles")
+                // App logo
+                Image("LaunchLogo")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 100, height: 100)
-                    .foregroundStyle(theme.primary)
+                    .frame(width: 64, height: 64)
 
                 // Headline
                 Text("MeetMemento")
                     .font(type.h1)
-                    .fontWeight(.bold)
-                    .foregroundStyle(theme.primary)
+                    .headerGradient()
 
                 // Description
                 Text("Your AI journalling partner.")
                     .font(type.body)
                     .foregroundStyle(theme.mutedForeground)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
 
                 Spacer()
                 

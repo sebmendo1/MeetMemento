@@ -51,7 +51,7 @@ struct SupabaseTestView: View {
                 Text("Supabase Connection")
                     .font(type.h2)
                     .fontWeight(.semibold)
-                    .foregroundStyle(theme.foreground)
+                    .headerGradient()
                 
                 Text(message)
                     .font(type.body)

@@ -46,7 +46,8 @@ public struct JournalView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .onChange(of: topSelection) { oldValue, newValue in
-                print("🔄 Tab selection changed from \(oldValue.title) to \(newValue.title)")
+                print("🔄 JournalView: Tab selection changed from \(oldValue.title) to \(newValue.title)")
+                print("   Old value: \(oldValue), New value: \(newValue)")
             }
         }
         .background(theme.background.ignoresSafeArea())
@@ -71,7 +72,7 @@ public struct JournalView: View {
     private var yourEntriesContent: some View {
         if entryViewModel.isLoading && entryViewModel.entries.isEmpty {
             // Loading state (only show spinner if no cached entries)
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 Spacer()
                 ProgressView()
                     .tint(theme.primary)
@@ -83,15 +84,15 @@ public struct JournalView: View {
             }
         } else if let errorMessage = entryViewModel.errorMessage, entryViewModel.entries.isEmpty {
             // Error state (only show if no cached entries)
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 Spacer()
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 36))
-                    .foregroundStyle(theme.destructive)
+                    .headerGradient()
                 Text("Failed to load entries")
                     .font(type.h3)
                     .fontWeight(.semibold)
-                    .foregroundStyle(theme.foreground)
+                    .headerGradient()
                 Text(errorMessage)
                     .font(type.body)
                     .foregroundStyle(theme.mutedForeground)
@@ -112,6 +113,7 @@ public struct JournalView: View {
                 title: "No journal entries yet",
                 message: "Start writing your first entry to see it here."
             )
+
         } else {
             // Content with entries grouped by day
             ScrollView {
@@ -177,7 +179,7 @@ public struct JournalView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.top, 28) // 12px existing + 16px additional = 28px total
             }
             .refreshable {
                 // Pull-to-refresh - force reload even if already loaded
@@ -194,7 +196,7 @@ public struct JournalView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Reflection Questions")
                         .font(type.h3)
-                        .foregroundStyle(theme.foreground)
+                        .headerGradient()
                     
                     Text("Explore these questions to deepen your self-awareness and growth.")
                         .font(type.body)
@@ -202,7 +204,7 @@ public struct JournalView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.top, 28) // 12px existing + 16px additional = 28px total
                 
                 // Follow-up question cards
                 VStack(spacing: 16) {
@@ -240,12 +242,12 @@ public struct JournalView: View {
             
             Image(systemName: icon)
                 .font(.system(size: 36))
-                .foregroundStyle(theme.mutedForeground)
+                .headerGradient()
             
             Text(title)
                 .font(type.h3)
                 .fontWeight(.semibold)
-                .foregroundStyle(theme.foreground)
+                .headerGradient()
             
             Text(message)
                 .font(type.body)

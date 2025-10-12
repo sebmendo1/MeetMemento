@@ -25,8 +25,7 @@ struct LoadingView: View {
                 // App name
                 Text("MeetMemento")
                     .font(type.h1)
-                    .fontWeight(.bold)
-                    .foregroundStyle(theme.foreground)
+                    .headerGradient()
                 
                 // Loading indicator
                 ProgressView()

@@ -35,6 +35,9 @@ public struct TopNav: View {
 
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
+    
+    // For smooth liquid glass animation
+    @Namespace private var tabAnimation
 
     public init(variant: TopNavVariant, selection: Binding<JournalTopTab>) {
         self.variant = variant
@@ -52,8 +55,7 @@ public struct TopNav: View {
             case .single:
                 // Plain header style but height matches selected tab
                 Text("Your Insights")
-                    .font(type.h3)                 // match tab label size
-                    .fontWeight(.semibold)
+                    .font(type.bodyBold)            // match pill tab font
                     .foregroundStyle(theme.primary)
                     .padding(.horizontal, hitPadding)
                     .contentShape(Rectangle())
@@ -62,8 +64,7 @@ public struct TopNav: View {
             case .singleSelected:
                 // Styled exactly like a selected tab (no scale so height stays fixed)
                 Text("Your Insights")
-                    .font(type.h3)
-                    .fontWeight(.semibold)
+                    .font(type.bodyBold)            // match pill tab font
                     .foregroundStyle(theme.primary)
                     .padding(.horizontal, hitPadding)
                     .contentShape(Rectangle())
@@ -92,17 +93,38 @@ public struct TopNav: View {
                 return 
             }
             print("👆 Tab clicked: \(tab.title), current selection: \(selection.title)")
+            print("   Tab enum value: \(tab)")
+            print("   Current selection enum: \(selection)")
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            // Update selection without animation wrapper to let TabView handle it
-            selection = tab
-            print("✅ Selection updated to: \(selection.title)")
+            
+            // Explicitly animate the selection change to trigger TabView transition
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0)) {
+                print("   🔄 Setting selection to: \(tab)")
+                selection = tab
+                print("   ✅ Selection is now: \(selection)")
+            }
+            
+            // Double-check after animation block
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                print("   ⏱️ After 0.1s, selection is: \(selection)")
+            }
         } label: {
+            // Tab label text
             Text(tab.title)
-                .font(type.h3)
-                .fontWeight(isSelected ? .semibold : .medium)
-                .foregroundStyle(theme.primary)
-                .opacity(isSelected ? 1 : 0.55)
-                .padding(.horizontal, hitPadding)
+                .font(type.bodyBold) // Use Manrope bold for tabs
+                .foregroundStyle(theme.primary) // Same color for both states
+                .padding(.horizontal, 16) // More padding for pill shape
+                .padding(.vertical, 8)
+                .background(
+                    // Animated pill background using matchedGeometryEffect
+                    ZStack {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(theme.accent.opacity(0.12))
+                                .matchedGeometryEffect(id: "tabPill", in: tabAnimation)
+                        }
+                    }
+                )
                 .frame(maxHeight: .infinity) // vertically centers within 44pt
                 .contentShape(Rectangle())
                 .accessibilityAddTraits(isSelected ? [.isHeader, .isSelected] : [.isHeader])

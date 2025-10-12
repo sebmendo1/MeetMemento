@@ -27,7 +27,13 @@ public struct IconButton: View {
                 .frame(width: size * 0.45, height: size * 0.45) // balanced icon size
                 .foregroundStyle(Color.white)                  // icon stays white
                 .padding(size * 0.25)                          // breathing room inside FAB
-                .background(theme.primary)                     // FAB background
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [theme.fabGradientStart, theme.fabGradientEnd]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .clipShape(Circle())                           // true circular FAB
                 .shadow(color: theme.primary.opacity(0.3), radius: 6, x: 0, y: 4) // subtle FAB shadow
         }

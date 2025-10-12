@@ -35,8 +35,7 @@ public struct SignUpView: View {
                     
                     Text("Create Account")
                         .font(type.h1)
-                        .fontWeight(.bold)
-                        .foregroundStyle(theme.foreground)
+                        .headerGradient()
                     
                     Text("Sign up to start your journaling journey")
                         .font(type.body)

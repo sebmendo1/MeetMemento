@@ -14,7 +14,8 @@ struct JournalCard: View {
     
     // MARK: - Environment
     @Environment(\.theme) private var theme
-    
+    @Environment(\.typography) private var type
+     
     // MARK: - State
     @State private var isPressed = false
 
@@ -31,6 +32,7 @@ struct JournalCard: View {
                 footer
             }
             .padding(.vertical, 16)
+            .padding(.horizontal, 16)
             
             Divider()
                 .background(theme.border) // Uses theme border color
@@ -62,7 +64,7 @@ struct JournalCard: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.headline)
+                .font(type.bodyBold) // Manrope Bold for card headers
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .truncationMode(.tail)

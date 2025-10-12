@@ -116,17 +116,19 @@ fileprivate enum DemoTab: String, CaseIterable, Identifiable, Hashable, LabeledT
 }
 
 struct TabSwitcher_Previews: PreviewProvider {
-    fileprivate struct Wrapper: View {
+    private struct Wrapper: View {
+        @Environment(\.typography) private var type
         @State private var selection: DemoTab = .journal
         var body: some View {
             VStack(spacing: 24) {
                 TabSwitcher<DemoTab>(selection: $selection)
                     .useTheme()
                     .useTypography()
-                    .frame(width: 200)
+                    .frame(width: 180)
+                    .frame(height:64)
 
                 Text("Selected: \(selection.title)")
-                    .font(.headline)
+                    .font(type.h4)
             }
             .padding()
         }

@@ -23,13 +23,26 @@ struct FollowUpCard: View {
             impactFeedback.impactOccurred()
             onTap()
         }) {
-            VStack(alignment: .leading, spacing: 12) {
-                headerSection
-                questionSection
+            HStack(alignment: .center, spacing: 12) {
+                // Question text
+                Text(question)
+                    .font(type.bodySmallBold)
+                    .foregroundStyle(theme.foreground)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Chevron icon
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(theme.mutedForeground)
             }
-            .padding(16)
-            .padding(.bottom, 4)
-            .background(cardBackground)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(theme.secondary)
+            )
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: isPressed)
         }
@@ -44,65 +57,12 @@ struct FollowUpCard: View {
         .accessibilityHint("Tap to journal about this reflection question")
     }
     
-    private var headerSection: some View {
-        HStack {
-            // FOLLOW-UP tag
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white)
-                Text("FOLLOW-UP")
-                    .font(type.label)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.white)
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(theme.followUpTagBackground)
-            )
-            
-            Spacer()
-            
-            // Chevron icon
-            Image(systemName: "chevron.right")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
-        }
-    }
-    
-    private var questionSection: some View {
-        Text(question)
-            .font(type.h4)
-            .fontWeight(.bold)
-            .foregroundStyle(.white)
-            .lineLimit(2)
-            .multilineTextAlignment(.leading)
-    }
-    
-    private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 24, style: .continuous)
-            .fill(
-                LinearGradient(
-                    gradient: Gradient(colors: [theme.followUpGradientStart, theme.followUpGradientEnd]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .shadow(
-                color: Color.black.opacity(isPressed ? 0 : 0.2),
-                radius: isPressed ? 0 : 8,
-                x: 0,
-                y: isPressed ? 0 : 4
-            )
-    }
 }
 
 // MARK: - Previews
 
 #Preview("Follow-up Card") {
-    FollowUpCard(question: "What was the most challenging part of your day?") {
+    FollowUpCard(question: "What do you think is next for reaching acceptance about your recent loss?") {
         print("Follow-up card tapped!")
     }
     .padding()
