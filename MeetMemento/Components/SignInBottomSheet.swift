@@ -20,7 +20,8 @@ public struct SignInBottomSheet: View {
     @State private var isLoading: Bool = false
     @State private var appleNativeError: String = ""
     @State private var isLoadingAppleNative = false
-    
+    @State private var navigateToOTP: Bool = false
+
     public var onSignInSuccess: (() -> Void)?
     
     public init(onSignInSuccess: (() -> Void)? = nil) {
@@ -146,28 +147,36 @@ public struct SignInBottomSheet: View {
         }
         .presentationDetents([.height(540)])
         .presentationDragIndicator(.hidden)
-
+        .fullScreenCover(isPresented: $navigateToOTP) {
+            NavigationStack {
+                OTPVerificationView(email: email, isSignUp: false)
+                    .environmentObject(authViewModel)
+                    .useTheme()
+                    .useTypography()
+            }
+        }
     }
     
     // MARK: - Actions
     
     private func signInWithEmail() {
         guard !email.isEmpty else { return }
-        
+
         isLoading = true
         status = ""
-        
+
         Task {
             do {
-                // For now, just show success message
-                // TODO: Implement actual email sign in
+                try await authViewModel.sendOTP(email: email)
                 await MainActor.run {
-                    status = "✅ Email sign in coming soon!"
+                    status = "✅ Code sent to \(email)"
                     isLoading = false
+                    // Navigate to OTP entry screen as full page
+                    navigateToOTP = true
                 }
             } catch {
                 await MainActor.run {
-                    status = "❌ Sign in failed: \(error.localizedDescription)"
+                    status = "❌ Failed to send code: \(error.localizedDescription)"
                     isLoading = false
                 }
             }

@@ -15,7 +15,11 @@ class AuthViewModel: ObservableObject {
     @Published var currentUser: Supabase.User?
     @Published var isLoading = false
     private var authCheckInProgress = false  // NEW: Prevent duplicate checks
-    
+
+    // Passwordless auth state
+    @Published var otpSent: Bool = false
+    @Published var userEmail: String = ""
+
     init() {
         // NO async work in init - prevents SIGKILL crashes
     }
@@ -100,56 +104,68 @@ class AuthViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Sign In
-    
-    func signIn(email: String, password: String) async throws {
-        try await SupabaseService.shared.signIn(email: email, password: password)
-        
-        // Optimistically set state without another network call
-        // The auth observer will update if needed
-        do {
-            currentUser = try await SupabaseService.shared.getCurrentUser()
-            isAuthenticated = currentUser != nil
-        } catch {
-            // Fallback to full check if quick fetch fails
-            await checkAuthState()
-        }
-    }
-    
-    // MARK: - Sign Up
-    
-    func signUp(email: String, password: String) async throws {
-        try await SupabaseService.shared.signUp(email: email, password: password)
-        await checkAuthState()
-        // Some Supabase auth configs require email confirmation and do not create a session.
-        // If no session exists after sign-up, attempt a direct sign-in with the same credentials
-        // to ensure redirect into the authenticated app for testing environments.
-        if !isAuthenticated {
-            do {
-                try await signIn(email: email, password: password)
-            } catch {
-                // If this fails, the user likely needs to confirm email first.
-                AppLogger.log("Post-signup sign-in failed: \(error.localizedDescription)",
-                             category: AppLogger.general,
-                             type: .error)
-            }
-        }
-    }
-    
     // MARK: - Sign Out
-    
+
     func signOut() async {
         do {
             try await SupabaseService.shared.signOut()
             currentUser = nil
             isAuthenticated = false
-            
+
             AppLogger.log("User signed out", category: AppLogger.general)
         } catch {
-            AppLogger.log("Sign out error: \(error.localizedDescription)", 
-                         category: AppLogger.general, 
+            AppLogger.log("Sign out error: \(error.localizedDescription)",
+                         category: AppLogger.general,
                          type: .error)
         }
+    }
+
+    // MARK: - Passwordless Authentication (OTP)
+
+    /// Step 1: Send OTP to email
+    func sendOTP(email: String) async throws {
+        userEmail = email
+        try await SupabaseService.shared.signInWithOTP(email: email)
+        otpSent = true
+        AppLogger.log("OTP sent to \(email)", category: AppLogger.general)
+    }
+
+    /// Step 2: Verify OTP and sign in
+    func verifyOTP(code: String) async throws {
+        try await SupabaseService.shared.verifyOTP(
+            email: userEmail,
+            token: code
+        )
+
+        // Check auth state after verification
+        await checkAuthState()
+
+        AppLogger.log("OTP verified, authenticated: \(isAuthenticated)", category: AppLogger.general)
+    }
+
+    /// Check if user needs to complete profile (for new users)
+    func checkIfUserNeedsOnboarding() async throws -> Bool {
+        guard let user = currentUser else { return true }
+
+        // Check if user has metadata (name, etc.)
+        let metadata = user.userMetadata
+        let hasFirstName = metadata["first_name"] != nil
+        let hasLastName = metadata["last_name"] != nil
+
+        return !(hasFirstName && hasLastName)
+    }
+
+    /// Update user profile metadata
+    func updateProfile(firstName: String, lastName: String) async throws {
+        try await SupabaseService.shared.updateUserMetadata(
+            firstName: firstName,
+            lastName: lastName
+        )
+
+        // Refresh user data
+        await checkAuthState()
+
+        AppLogger.log("Profile updated for user", category: AppLogger.general)
     }
 }
 

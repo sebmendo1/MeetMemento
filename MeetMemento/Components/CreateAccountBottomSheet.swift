@@ -21,7 +21,8 @@ public struct CreateAccountBottomSheet: View {
     @State private var isLoading: Bool = false
     @State private var appleNativeError: String = ""
     @State private var isLoadingAppleNative = false
-    
+    @State private var navigateToOTP: Bool = false
+
     public var onSignUpSuccess: (() -> Void)?
     
     public init(onSignUpSuccess: (() -> Void)? = nil) {
@@ -150,6 +151,14 @@ public struct CreateAccountBottomSheet: View {
         }
         .presentationDetents([.height(540)])
         .presentationDragIndicator(.hidden)
+        .fullScreenCover(isPresented: $navigateToOTP) {
+            NavigationStack {
+                OTPVerificationView(email: email, isSignUp: true)
+                    .environmentObject(authViewModel)
+                    .useTheme()
+                    .useTypography()
+            }
+        }
     }
     
     
@@ -157,21 +166,22 @@ public struct CreateAccountBottomSheet: View {
     
     private func createAccountWithEmail() {
         guard !email.isEmpty else { return }
-        
+
         isLoading = true
         status = ""
-        
+
         Task {
             do {
-                // For now, just show success message
-                // TODO: Implement actual email sign up
+                try await authViewModel.sendOTP(email: email)
                 await MainActor.run {
-                    status = "✅ Account creation coming soon!"
+                    status = "✅ Code sent to \(email)"
                     isLoading = false
+                    // Navigate to OTP entry screen as full page
+                    navigateToOTP = true
                 }
             } catch {
                 await MainActor.run {
-                    status = "❌ Account creation failed: \(error.localizedDescription)"
+                    status = "❌ Failed to send code: \(error.localizedDescription)"
                     isLoading = false
                 }
             }

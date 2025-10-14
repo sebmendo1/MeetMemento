@@ -34,21 +34,11 @@ class SupabaseService {
     }
     
     // MARK: - Authentication
-    
-    func signIn(email: String, password: String) async throws {
-        guard let client = client else {
-            throw SupabaseServiceError.clientNotConfigured
-        }
-        try await client.auth.signIn(email: email, password: password)
-    }
-    
-    func signUp(email: String, password: String) async throws {
-        guard let client = client else {
-            throw SupabaseServiceError.clientNotConfigured
-        }
-        try await client.auth.signUp(email: email, password: password)
-    }
-    
+    // Note: App uses 3 authentication methods only:
+    // 1. Google Sign In (OAuth)
+    // 2. Apple Sign In (Native)
+    // 3. Email OTP (Passwordless)
+
     func signOut() async throws {
         guard let client = client else {
             throw SupabaseServiceError.clientNotConfigured
@@ -63,7 +53,51 @@ class SupabaseService {
         }
         return try? await client.auth.session.user
     }
-    
+
+    // MARK: - Passwordless Authentication (OTP)
+
+    /// Sends a 6-digit OTP code to the user's email
+    /// Note: OTP vs Magic Link is determined by Supabase email template configuration
+    /// Make sure your email template uses {{ .Token }} not {{ .ConfirmationURL }}
+    func signInWithOTP(email: String) async throws {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+        // Send OTP - no redirectTo parameter means email template controls the format
+        try await client.auth.signInWithOTP(email: email)
+        AppLogger.log("✅ OTP sent to \(email)", category: AppLogger.network)
+    }
+
+    /// Verifies the OTP code entered by user
+    func verifyOTP(email: String, token: String) async throws {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+        try await client.auth.verifyOTP(
+            email: email,
+            token: token,
+            type: .email
+        )
+        AppLogger.log("✅ OTP verified for \(email)", category: AppLogger.network)
+    }
+
+    /// Updates user metadata (name, profile info, etc.)
+    func updateUserMetadata(firstName: String, lastName: String) async throws {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        let attributes = UserAttributes(
+            data: [
+                "first_name": .string(firstName),
+                "last_name": .string(lastName)
+            ]
+        )
+
+        try await client.auth.update(user: attributes)
+        AppLogger.log("✅ User metadata updated", category: AppLogger.network)
+    }
+
     /// Gets the current user ID with caching for better performance
     private func getCurrentUserId() async throws -> UUID {
         if let cachedUserId = cachedUserId {
