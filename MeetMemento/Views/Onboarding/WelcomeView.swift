@@ -18,6 +18,8 @@ public struct WelcomeView: View {
     
     @State private var showSignUp = false
     @State private var showSignIn = false
+    @State private var showCreateAccountSheet = false
+    @State private var showSignInSheet = false
     @State private var appleNativeError: String = ""
     @State private var isLoadingAppleNative = false
 
@@ -61,50 +63,16 @@ public struct WelcomeView: View {
                         signInWithAppleNative()
                     }
                     .disabled(isLoadingAppleNative)
-
-                    // Sign Up button
-                    NavigationLink {
-                        SignUpView()
-                            .useTheme()
-                            .useTypography()
-                    } label: {
-                        Text("Sign Up")
-                            .font(type.button)
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(theme.secondary)
-                            .foregroundStyle(theme.foreground)
-                            .clipShape(RoundedRectangle(cornerRadius: theme.radius.lg, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: theme.radius.lg, style: .continuous)
-                                    .stroke(theme.border, lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
                     
-                    // Sign In button
-                    NavigationLink {
-                        SignInView(onSignInSuccess: {
-                            onNext?()
-                        })
-                            .useTheme()
-                            .useTypography()
-                    } label: {
-                        Text("Sign In")
-                            .font(type.button)
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(theme.secondary)
-                            .foregroundStyle(theme.foreground)
-                            .clipShape(RoundedRectangle(cornerRadius: theme.radius.lg, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: theme.radius.lg, style: .continuous)
-                                    .stroke(theme.border, lineWidth: 1)
-                            )
+                    // Sign In button (PrimaryButton)
+                    PrimaryButton(title: "Sign In") {
+                        showSignInSheet = true
                     }
-                    .buttonStyle(.plain)
+
+                    // Create Account button (SecondaryButton)
+                    SecondaryButton(title: "Create Account") {
+                        showCreateAccountSheet = true
+                    }
                 }
                 .padding(.horizontal, 16)
 
@@ -120,6 +88,24 @@ public struct WelcomeView: View {
             }
             .padding()
             .background(theme.background.ignoresSafeArea())
+        }
+        .sheet(isPresented: $showCreateAccountSheet) {
+            CreateAccountBottomSheet(onSignUpSuccess: {
+                showCreateAccountSheet = false
+                onNext?()
+            })
+            .useTheme()
+            .useTypography()
+            .environmentObject(authStatus)
+        }
+        .sheet(isPresented: $showSignInSheet) {
+            SignInBottomSheet(onSignInSuccess: {
+                showSignInSheet = false
+                onNext?()
+            })
+            .useTheme()
+            .useTypography()
+            .environmentObject(authStatus)
         }
     }
 

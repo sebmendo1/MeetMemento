@@ -31,7 +31,8 @@ struct FontDebugger {
     static func checkFontAvailability() {
         let requiredFonts = [
             "Recoleta-Black",
-            "Manrope-Regular", 
+            "RecoletaAlt-SemiBold",
+            "Manrope-Regular",
             "Manrope-Medium",
             "Manrope-Bold"
         ]

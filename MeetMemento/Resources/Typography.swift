@@ -1,29 +1,32 @@
 import SwiftUI
 
-// Typography system using custom fonts with safe fallbacks.
-// Headings use Recoleta Black, body and UI text use Manrope.
-// Sizes are aligned to the provided spec: 40, 32, 24, 20, 17, 15, 13, 11.
+// MARK: - Typography
+// Supports dynamic font weight control for headings (Recoleta Black / SemiBold)
+// and body text (Manrope Regular / Medium / Bold).
 
 public struct Typography {
     // Spec sizes
-    public let micro: CGFloat       // 11
-    public let caption: CGFloat     // 13
-    public let bodyS: CGFloat       // 15
-    public let bodyL: CGFloat       // 17
-    public let titleS: CGFloat      // 20
-    public let titleM: CGFloat      // 24
-    public let displayL: CGFloat    // 32
-    public let displayXL: CGFloat   // 40
+    public let micro: CGFloat
+    public let caption: CGFloat
+    public let bodyS: CGFloat
+    public let bodyL: CGFloat
+    public let titleS: CGFloat
+    public let titleM: CGFloat
+    public let displayL: CGFloat
+    public let displayXL: CGFloat
 
     public let weightNormal: Font.Weight
     public let weightMedium: Font.Weight
 
-    // Font family names. Ensure these match the installed font PostScript names.
-    // Using Recoleta Black (highest weight) for all heading sizes (titleS, titleM, displayL, displayXL)
-    private let headingFontName = "Recoleta-Black"
+    // MARK: - Font family names
+    private let headingFontNameBlack = "Recoleta-Black"
+    private let headingFontNameSemiBold = "RecoletaAlt-SemiBold"
     private let bodyFontName = "Manrope-Regular"
     private let bodyMediumFontName = "Manrope-Medium"
     private let bodyBoldFontName = "Manrope-Bold"
+
+    // Configurable heading weight
+    public let headingWeight: Font.Weight
 
     public init(
         micro: CGFloat = 11,
@@ -35,7 +38,8 @@ public struct Typography {
         displayL: CGFloat = 32,
         displayXL: CGFloat = 40,
         weightNormal: Font.Weight = .regular,
-        weightMedium: Font.Weight = .medium
+        weightMedium: Font.Weight = .medium,
+        headingWeight: Font.Weight = .black // default Recoleta-Black
     ) {
         self.micro = micro
         self.caption = caption
@@ -47,16 +51,24 @@ public struct Typography {
         self.displayXL = displayXL
         self.weightNormal = weightNormal
         self.weightMedium = weightMedium
+        self.headingWeight = headingWeight
     }
 
-    // Derived line spacing for ~1.5 line-height.
+    // MARK: - Line Spacing
     private func lineSpacing(for size: CGFloat) -> CGFloat { max(0, size * 0.5) }
+    private func headingLineSpacing(for size: CGFloat) -> CGFloat { max(0, size * 0.2) }
 
-    // Helpers to safely use custom fonts with fallback to system.
+    // MARK: - Font helpers
     private func headingFont(size: CGFloat) -> Font {
-        Font.custom(headingFontName, size: size, relativeTo: .title)
-            .weight(.bold) // Ensure all Recoleta headings are bold
+        // Dynamically pick Recoleta Black or SemiBold based on headingWeight
+        let name = (headingWeight == .semibold)
+            ? headingFontNameSemiBold
+            : headingFontNameBlack
+
+        // Don't apply .weight() modifier to custom fonts - the font file itself defines the weight
+        return Font.custom(name, size: size, relativeTo: .title)
     }
+
     private func bodyFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         switch weight {
         case .bold:
@@ -68,7 +80,7 @@ public struct Typography {
         }
     }
 
-    // MARK: Fonts (semantic)
+    // MARK: - Semantic Fonts
     public var h1: Font { headingFont(size: displayXL) }
     public var h2: Font { headingFont(size: displayL) }
     public var h3: Font { headingFont(size: titleM) }
@@ -87,9 +99,13 @@ public struct Typography {
     public var microText: Font { bodyFont(size: micro, weight: weightNormal) }
     public var microBold: Font { bodyFont(size: micro, weight: .bold) }
 
-    // MARK: Modifiers to apply line-height-ish spacing
+    // MARK: - Line height modifiers
     public func lineSpacingModifier(for size: CGFloat) -> some ViewModifier {
         LineHeight(spacing: lineSpacing(for: size))
+    }
+
+    public func headingLineSpacingModifier(for size: CGFloat) -> some ViewModifier {
+        LineHeight(spacing: headingLineSpacing(for: size))
     }
 
     struct LineHeight: ViewModifier {
@@ -101,53 +117,51 @@ public struct Typography {
 }
 
 // MARK: - Environment + Defaults
-
 private struct TypographyKey: EnvironmentKey {
     static let defaultValue = Typography()
 }
+
 public extension EnvironmentValues {
     var typography: Typography {
         get { self[TypographyKey.self] }
         set { self[TypographyKey.self] = newValue }
     }
 }
+
 public struct TypographyProvider: ViewModifier {
     let typography: Typography
-    public init() {
-        self.typography = Typography()
+    public init(_ typography: Typography = Typography()) {
+        self.typography = typography
     }
     public func body(content: Content) -> some View {
         content.environment(\.typography, typography)
     }
 }
+
 public extension View {
-    func useTypography() -> some View {
-        modifier(TypographyProvider())
+    func useTypography(_ typography: Typography = Typography()) -> some View {
+        modifier(TypographyProvider(typography))
     }
 }
 
-// MARK: - Sugar
-
+// MARK: - Sugar Extensions
 public extension View {
-    // Heading styles
     func h1(_ env: EnvironmentValues) -> some View {
         self.font(env.typography.h1)
-            .modifier(env.typography.lineSpacingModifier(for: env.typography.displayXL))
+            .modifier(env.typography.headingLineSpacingModifier(for: env.typography.displayXL))
     }
     func h2(_ env: EnvironmentValues) -> some View {
         self.font(env.typography.h2)
-            .modifier(env.typography.lineSpacingModifier(for: env.typography.displayL))
+            .modifier(env.typography.headingLineSpacingModifier(for: env.typography.displayL))
     }
     func h3(_ env: EnvironmentValues) -> some View {
         self.font(env.typography.h3)
-            .modifier(env.typography.lineSpacingModifier(for: env.typography.titleM))
+            .modifier(env.typography.headingLineSpacingModifier(for: env.typography.titleM))
     }
     func h4(_ env: EnvironmentValues) -> some View {
         self.font(env.typography.h4)
-            .modifier(env.typography.lineSpacingModifier(for: env.typography.titleS))
+            .modifier(env.typography.headingLineSpacingModifier(for: env.typography.titleS))
     }
-
-    // Body / label / button / input
     func bodyText(_ env: EnvironmentValues) -> some View {
         self.font(env.typography.body)
             .modifier(env.typography.lineSpacingModifier(for: env.typography.bodyL))
@@ -167,11 +181,8 @@ public extension View {
 }
 
 // MARK: - Header Gradient Extension
-
-/// A view modifier that applies a gradient to header text using theme tokens
 struct HeaderGradientModifier: ViewModifier {
     @Environment(\.theme) private var theme
-    
     func body(content: Content) -> some View {
         content.foregroundStyle(
             LinearGradient(
@@ -184,7 +195,6 @@ struct HeaderGradientModifier: ViewModifier {
 }
 
 public extension View {
-    /// Applies a gradient to header text (H1, H2, H3) using theme tokens
     func headerGradient() -> some View {
         self.modifier(HeaderGradientModifier())
     }

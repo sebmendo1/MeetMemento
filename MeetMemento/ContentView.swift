@@ -76,6 +76,7 @@ public struct ContentView: View {
                         .environmentObject(entryViewModel) // Share the view model
                     case .insights:
                         InsightsView()
+                            .environmentObject(entryViewModel) // Share the view model
                     }
                 }
                 

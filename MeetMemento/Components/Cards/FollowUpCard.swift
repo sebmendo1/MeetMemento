@@ -37,7 +37,7 @@ struct FollowUpCard: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(theme.mutedForeground)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 16)
             .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)

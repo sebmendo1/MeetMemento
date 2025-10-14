@@ -45,6 +45,8 @@ public struct JournalView: View {
                     .tag(JournalTopTab.digDeeper)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            .animation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0), value: topSelection)
+            .id(topSelection) // Force TabView to rebuild when selection changes
             .onChange(of: topSelection) { oldValue, newValue in
                 print("🔄 JournalView: Tab selection changed from \(oldValue.title) to \(newValue.title)")
                 print("   Old value: \(oldValue), New value: \(newValue)")

@@ -97,17 +97,16 @@ public struct TopNav: View {
             print("   Current selection enum: \(selection)")
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             
-            // Explicitly animate the selection change to trigger TabView transition
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0)) {
-                print("   🔄 Setting selection to: \(tab)")
+            // Update selection with explicit state change
+            print("   🔄 Setting selection to: \(tab)")
+            
+            // Force a state change by updating twice (common SwiftUI workaround)
+            selection = tab
+            DispatchQueue.main.async {
                 selection = tab
-                print("   ✅ Selection is now: \(selection)")
             }
             
-            // Double-check after animation block
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                print("   ⏱️ After 0.1s, selection is: \(selection)")
-            }
+            print("   ✅ Selection is now: \(selection)")
         } label: {
             // Tab label text
             Text(tab.title)

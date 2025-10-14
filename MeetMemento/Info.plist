@@ -5,6 +5,7 @@
 	<key>UIAppFonts</key>
 	<array>
 		<string>Recoleta-Black.otf</string>
+		<string>Recoleta-SemiBold.otf</string>
 		<string>Manrope-Regular.ttf</string>
 		<string>Manrope-Medium.ttf</string>
 		<string>Manrope-Bold.ttf</string>
