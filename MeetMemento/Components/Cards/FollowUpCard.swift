@@ -9,14 +9,15 @@ import SwiftUI
 
 struct FollowUpCard: View {
     let question: String
+    let isCompleted: Bool
     let onTap: () -> Void
-    
+
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
-    
+
     // MARK: - State
     @State private var isPressed = false
-    
+
     var body: some View {
         Button(action: {
             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -27,15 +28,36 @@ struct FollowUpCard: View {
                 // Question text
                 Text(question)
                     .font(type.bodySmallBold)
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(isCompleted ? theme.mutedForeground : theme.foreground)
+                    .strikethrough(isCompleted, color: theme.mutedForeground)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                
-                // Chevron icon
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(theme.mutedForeground)
+
+                // Icon (chevron for incomplete, checkmark for complete)
+                if isCompleted {
+                    // Purple checkmark circle
+                    ZStack {
+                        Circle()
+                            .fill(theme.primary)
+                            .frame(width: 24, height: 24)
+
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                } else {
+                    // Chevron icon with circle border
+                    ZStack {
+                        Circle()
+                            .stroke(theme.mutedForeground, lineWidth: 1.5)
+                            .frame(width: 24, height: 24)
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(theme.mutedForeground)
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
@@ -54,31 +76,54 @@ struct FollowUpCard: View {
         }, perform: {})
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Follow-up question: \(question)")
-        .accessibilityHint("Tap to journal about this reflection question")
+        .accessibilityHint(isCompleted ? "Completed" : "Tap to journal about this reflection question")
     }
     
 }
 
 // MARK: - Previews
 
-#Preview("Follow-up Card") {
-    FollowUpCard(question: "What do you think is next for reaching acceptance about your recent loss?") {
-        print("Follow-up card tapped!")
+#Preview("Both States") {
+    VStack(spacing: 16) {
+        // Incomplete state
+        FollowUpCard(
+            question: "What do you think is next for reaching acceptance about your recent loss?",
+            isCompleted: false
+        ) {
+            print("Incomplete card tapped!")
+        }
+
+        // Complete state
+        FollowUpCard(
+            question: "What do you think is next for reaching acceptance about your recent loss?",
+            isCompleted: true
+        ) {
+            print("Complete card tapped!")
+        }
     }
     .padding()
     .useTheme()
     .useTypography()
 }
 
-#Preview("Multiple Cards") {
+#Preview("Multiple Cards - Mixed States") {
     VStack(spacing: 16) {
-        FollowUpCard(question: "What was the most challenging part of your day?") {
+        FollowUpCard(
+            question: "What was the most challenging part of your day?",
+            isCompleted: false
+        ) {
             print("Card 1 tapped!")
         }
-        FollowUpCard(question: "How did you practice self-care today?") {
+        FollowUpCard(
+            question: "How did you practice self-care today?",
+            isCompleted: true
+        ) {
             print("Card 2 tapped!")
         }
-        FollowUpCard(question: "What are you grateful for right now?") {
+        FollowUpCard(
+            question: "What are you grateful for right now?",
+            isCompleted: false
+        ) {
             print("Card 3 tapped!")
         }
     }

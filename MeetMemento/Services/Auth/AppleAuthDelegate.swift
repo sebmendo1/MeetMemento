@@ -12,13 +12,14 @@ import os.log
 
 final class AppleAuthDelegate: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     private let nonce: String
-    private let completion: (String?) -> Void
+    // Updated completion: (error, firstName, lastName)
+    private let completion: (String?, String?, String?) -> Void
     private let logger = os.Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.meetmemento", category: "AppleAuth")
-    
+
     // Strong reference to self to prevent deallocation during async flow
     private var strongSelf: AppleAuthDelegate?
 
-    init(nonce: String, completion: @escaping (String?) -> Void) {
+    init(nonce: String, completion: @escaping (String?, String?, String?) -> Void) {
         self.nonce = nonce
         self.completion = completion
         super.init()
@@ -32,7 +33,7 @@ final class AppleAuthDelegate: NSObject, ASAuthorizationControllerDelegate, ASAu
         
         guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
             logger.error("Invalid authorization credential")
-            completion("Invalid authorization credential")
+            completion("Invalid authorization credential", nil, nil)
             strongSelf = nil
             return
         }
@@ -40,25 +41,49 @@ final class AppleAuthDelegate: NSObject, ASAuthorizationControllerDelegate, ASAu
         guard let idTokenData = appleIDCredential.identityToken,
               let idToken = String(data: idTokenData, encoding: .utf8) else {
             logger.error("Missing identity token")
-            completion("Missing identity token")
+            completion("Missing identity token", nil, nil)
             strongSelf = nil
             return
         }
 
         logger.log("ID Token received, signing in with Supabase...")
 
+        // Extract name from credential (only available on first sign-in)
+        var firstName: String? = nil
+        var lastName: String? = nil
+
+        if let fullName = appleIDCredential.fullName {
+            firstName = fullName.givenName
+            lastName = fullName.familyName
+
+            if let first = firstName, let last = lastName {
+                logger.log("Extracted name from Apple credential: \(first) \(last)")
+            }
+        }
+
         Task {
             do {
                 try await AuthService.shared.signInWithApple_Native(idToken: idToken, nonce: nonce)
                 logger.log("✅ Apple sign-in successful")
+
+                // Do NOT auto-save profile data anymore
+                // Instead, pass the names back to the caller to handle
+                // This ensures consistent UX with OTP flow (shows CreateAccountView for all new users)
+                if let first = firstName, let last = lastName, !first.isEmpty, !last.isEmpty {
+                    logger.log("✅ Apple provided profile data - passing to caller: \(first) \(last)")
+                } else {
+                    logger.log("⚠️ No profile data from Apple (likely returning user)")
+                }
+
                 await MainActor.run {
-                    completion(nil) // Success
+                    // Success - pass error=nil and the names (may be nil for returning users)
+                    completion(nil, firstName, lastName)
                     strongSelf = nil
                 }
             } catch {
                 logger.error("❌ Apple sign-in failed: \(error.localizedDescription)")
                 await MainActor.run {
-                    completion(error.localizedDescription)
+                    completion(error.localizedDescription, nil, nil)
                     strongSelf = nil
                 }
             }
@@ -99,7 +124,7 @@ final class AppleAuthDelegate: NSObject, ASAuthorizationControllerDelegate, ASAu
             errorMessage = "Error: \(error.localizedDescription)"
         }
         
-        completion(errorMessage)
+        completion(errorMessage, nil, nil)
         strongSelf = nil
     }
 

@@ -36,18 +36,26 @@ public enum EntryRoute: Hashable {
     case followUp(String) // String is the follow-up question
 }
 
+// MARK: - Navigation route for settings
+public enum SettingsRoute: Hashable {
+    case main
+    case profile
+    case appearance
+    case about
+}
+
 public struct ContentView: View {
     // Bottom tab selection drives which screen is shown
     @State private var bottomSelection: AppTab = .journal
-    
-    // Navigation path for entry editor
+
+    // Navigation path for entry editor and settings
     @State private var navigationPath = NavigationPath()
-    
-    // Controls presentation of settings
-    @State private var showSettings: Bool = false
-    
+
     // Entry view model for managing journal entries (shared across views)
     @StateObject private var entryViewModel = EntryViewModel()
+
+    // Show success view after follow-up question is answered
+    @State private var showJournalCreated = false
 
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
@@ -68,7 +76,9 @@ public struct ContentView: View {
                     switch bottomSelection {
                     case .journal:
                         JournalView(
-                            onSettingsTapped: { showSettings = true },
+                            onSettingsTapped: {
+                                navigationPath.append(SettingsRoute.main)
+                            },
                             onNavigateToEntry: { route in
                                 navigationPath.append(route)
                             }
@@ -106,16 +116,35 @@ public struct ContentView: View {
                     }
                 case .followUp(let question):
                     AddEntryView(entry: nil, followUpQuestion: question) { title, text in
-                        entryViewModel.createFollowUpEntry(title: title, text: text)
-                        navigationPath.removeLast()
+                        entryViewModel.createFollowUpEntry(title: title, text: text, question: question)
+                        // Show success screen instead of immediately going back
+                        showJournalCreated = true
                     }
                 }
             }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-                    .useTheme()
-                    .useTypography()
+            .navigationDestination(for: SettingsRoute.self) { route in
+                switch route {
+                case .main:
+                    SettingsView()
+                        .environmentObject(authViewModel)
+                case .profile:
+                    ProfileSettingsView()
+                        .environmentObject(authViewModel)
+                case .appearance:
+                    AppearanceSettingsView()
+                case .about:
+                    AboutSettingsView()
+                }
             }
+        }
+        .fullScreenCover(isPresented: $showJournalCreated) {
+            JournalCreatedView {
+                // Dismiss the success view and navigate back to journal
+                showJournalCreated = false
+                navigationPath.removeLast()
+            }
+            .useTheme()
+            .useTypography()
         }
         .useTheme()
         .useTypography()

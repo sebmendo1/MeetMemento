@@ -92,7 +92,7 @@ public struct Typography {
     public var bodySmallBold: Font { bodyFont(size: bodyS, weight: .bold) }
     public var label: Font { bodyFont(size: caption, weight: weightMedium) }
     public var labelBold: Font { bodyFont(size: caption, weight: .bold) }
-    public var button: Font { bodyFont(size: bodyL, weight: weightMedium) }
+    public var button: Font { bodyFont(size: bodyL, weight: .bold) }
     public var input: Font { bodyFont(size: bodyL, weight: weightNormal) }
     public var captionText: Font { bodyFont(size: caption, weight: weightNormal) }
     public var captionBold: Font { bodyFont(size: caption, weight: .bold) }

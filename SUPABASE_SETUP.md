@@ -120,5 +120,74 @@ Check the console for the initialization log:
 
 ---
 
+## 🗑️ Account Deletion Setup (Required)
+
+To enable complete account deletion functionality, you need to create a database function in Supabase.
+
+### Why is this needed?
+
+The iOS app allows users to delete their accounts. This requires deleting:
+1. All user data (journal entries) - ✅ Works automatically
+2. The auth account itself - ⚠️ Requires this SQL function
+
+### Setup Instructions:
+
+1. Go to your Supabase Dashboard
+2. Navigate to **SQL Editor**
+3. Click **New Query**
+4. Copy and paste this SQL:
+
+```sql
+-- Function to allow users to delete their own account
+-- Called from the iOS app when users tap "Delete Account" in Settings
+CREATE OR REPLACE FUNCTION delete_user()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- Delete the authenticated user's account from auth.users
+  -- This will cascade and delete all related data due to foreign key constraints
+  DELETE FROM auth.users WHERE id = auth.uid();
+END;
+$$;
+
+-- Grant execute permission to authenticated users only
+GRANT EXECUTE ON FUNCTION delete_user() TO authenticated;
+
+-- Add documentation comment
+COMMENT ON FUNCTION delete_user() IS 'Allows authenticated users to delete their own account and all associated data';
+```
+
+5. Click **Run** or press `Cmd + Enter`
+6. Verify success message appears
+
+### How It Works:
+
+- `auth.uid()` ensures users can only delete their own account (security)
+- `SECURITY DEFINER` runs with elevated privileges (required for auth table access)
+- Deletion cascades to all related data via foreign keys
+- Only authenticated users can call this function
+
+### Testing:
+
+After creating the function:
+1. Open the app → Settings
+2. Tap "Delete Account"
+3. Confirm the warning
+4. You should see: ✅ Account deleted successfully
+
+### Without This Function:
+
+If you don't create this function, account deletion still works with limitations:
+- ✅ All user data (entries, metadata) is deleted
+- ✅ User is signed out
+- ⚠️ Auth account remains in Supabase (but user can't access data)
+
+The app handles this gracefully without showing errors.
+
+---
+
 **Next Steps**: Update your `SupabaseConfig.swift` with real credentials and start building! 🚀
 

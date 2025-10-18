@@ -105,7 +105,7 @@ private struct ProgressSegments: View {
     let total: Int
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             ForEach(0..<max(total, 1), id: \.self) { i in
                 Capsule(style: .continuous)
                     .fill(i == current ? .white : .white.opacity(0.35))
@@ -124,7 +124,7 @@ private struct ProgressSegments: View {
 // MARK: - Preview
 #Preview {
     ScrollView {
-        VStack(spacing: 24) {
+        VStack(spacing: 32) {
             SummaryCard(insights: [
                 "Over the past week, you’ve reflected frequently on work stress and overwhelm around deadlines and meetings.",
                 "You tend to feel better after short morning runs; consider scheduling two 20–30 minute sessions mid-week.",

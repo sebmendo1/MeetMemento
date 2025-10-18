@@ -110,14 +110,31 @@ public struct SignInBottomSheet: View {
                     // Social auth buttons
                     VStack(spacing: 12) {
                         // Apple Sign In
-                        AppleSignInButton(style: .black) {
+                        AppleSignInButton(title: "Continue with Apple", style: .black) {
                             signInWithAppleNative()
                         }
                         .disabled(isLoadingAppleNative)
                         
                         // Google Sign In
                         GoogleSignInButton(title: "Continue with Google") {
-                            Task { try? await AuthService.shared.signInWithGoogle() }
+                            Task {
+                                do {
+                                    try await AuthService.shared.signInWithGoogle()
+                                    // Check auth state after OAuth completes
+                                    await authViewModel.checkAuthState()
+                                    await authViewModel.checkOnboardingStatus()
+
+                                    // OAuth success - check auth state and dismiss
+                                    await MainActor.run {
+                                        dismiss()
+                                        onSignInSuccess?()
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        status = "❌ Google sign-in failed: \(error.localizedDescription)"
+                                    }
+                                }
+                            }
                         }
                     }
                     
@@ -154,6 +171,18 @@ public struct SignInBottomSheet: View {
                     .useTheme()
                     .useTypography()
             }
+            .onChange(of: authViewModel.authState) { oldState, newState in
+                // When user becomes authenticated (OTP verified), dismiss OTP view and sheet
+                AppLogger.log("SignInBottomSheet: authState changed from \(oldState) to \(newState)", category: AppLogger.general)
+
+                if newState.isAuthenticated {
+                    navigateToOTP = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        dismiss()
+                        onSignInSuccess?()
+                    }
+                }
+            }
         }
     }
     
@@ -186,21 +215,36 @@ public struct SignInBottomSheet: View {
     private func signInWithAppleNative() {
         isLoadingAppleNative = true
         appleNativeError = ""
-        
+
         let nonce = NonceGenerator.randomNonce()
         let hashedNonce = NonceGenerator.sha256(nonce)
-        
+
         let request = ASAuthorizationAppleIDProvider().createRequest()
         request.requestedScopes = [.fullName, .email]
         request.nonce = hashedNonce
-        
+
         let controller = ASAuthorizationController(authorizationRequests: [request])
-        let delegate = AppleAuthDelegate(nonce: nonce) { [self] errorMessage in
+        // Updated delegate with new completion signature
+        let delegate = AppleAuthDelegate(nonce: nonce) { [self] errorMessage, firstName, lastName in
             DispatchQueue.main.async {
                 self.isLoadingAppleNative = false
                 if let error = errorMessage {
                     self.appleNativeError = error
                 } else {
+                    // Store pending names in AuthViewModel (if provided by Apple)
+                    // Note: For returning users, Apple won't provide names again
+                    if let first = firstName, let last = lastName, !first.isEmpty, !last.isEmpty {
+                        self.authViewModel.storePendingAppleProfile(firstName: first, lastName: last)
+                        AppLogger.log("✅ Stored Apple names for SignInBottomSheet", category: AppLogger.general)
+                    } else {
+                        AppLogger.log("⚠️ No Apple names provided (returning user)", category: AppLogger.general)
+                    }
+
+                    // Check auth state to ensure proper flow
+                    Task {
+                        await self.authViewModel.checkAuthState()
+                    }
+
                     // Success - dismiss sheet
                     self.dismiss()
                     self.onSignInSuccess?()

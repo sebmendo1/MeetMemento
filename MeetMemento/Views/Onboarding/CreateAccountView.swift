@@ -19,11 +19,12 @@ public struct CreateAccountView: View {
     @State private var status: String = ""
     @State private var isLoading: Bool = false
 
-    public init() {}
+    // Callback for when profile is completed
+    public var onComplete: (() -> Void)?
 
-    // NOTE: This view is deprecated and should not be used for authentication.
-    // Use CreateAccountBottomSheet → OTPVerificationView instead.
-    // This can be repurposed for profile completion after OTP auth if needed.
+    public init(onComplete: (() -> Void)? = nil) {
+        self.onComplete = onComplete
+    }
     
     public var body: some View {
         ZStack {
@@ -86,7 +87,7 @@ public struct CreateAccountView: View {
 
                 Spacer(minLength: 120)
             }
-            .padding(.horizontal, 32)
+            .padding(.horizontal, 16)
             }
             .background(theme.background.ignoresSafeArea())
 
@@ -98,7 +99,7 @@ public struct CreateAccountView: View {
                     IconButton(systemImage: "chevron.right", size: 64) {
                         signUp()
                     }
-                    .padding(.trailing, 24)
+                    .padding(.trailing, 16)
                     .padding(.bottom, 32)
                     .opacity(isLoading ? 0.5 : 1.0)
                     .disabled(isLoading)
@@ -106,6 +107,7 @@ public struct CreateAccountView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
@@ -115,6 +117,18 @@ public struct CreateAccountView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(theme.foreground)
                 }
+            }
+        }
+        .onAppear {
+            // Pre-populate fields from Apple Sign In if available
+            if let pendingFirst = authViewModel.pendingFirstName, !pendingFirst.isEmpty {
+                firstName = pendingFirst
+                AppLogger.log("✅ Pre-populated firstName from Apple: \(pendingFirst)", category: AppLogger.general)
+            }
+
+            if let pendingLast = authViewModel.pendingLastName, !pendingLast.isEmpty {
+                lastName = pendingLast
+                AppLogger.log("✅ Pre-populated lastName from Apple: \(pendingLast)", category: AppLogger.general)
             }
         }
     }
@@ -146,9 +160,16 @@ public struct CreateAccountView: View {
                     isLoading = false
                     status = "✅ Profile saved!"
 
-                    // Dismiss after successful profile update
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                        dismiss()
+                    // Clear pending profile data after successful save
+                    authViewModel.clearPendingProfile()
+
+                    // Navigate to next step or dismiss
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        if let onComplete = onComplete {
+                            onComplete()
+                        } else {
+                            dismiss()
+                        }
                     }
                 }
 

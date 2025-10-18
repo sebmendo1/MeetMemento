@@ -71,7 +71,7 @@ public struct AddEntryView: View {
     private var titleField: some View {
         TextField("", text: $title, axis: .vertical)
             .font(.system(size: 32, weight: .bold))
-            .foregroundStyle(isFollowUpEntry ? theme.followUpGradientStart : theme.foreground)
+            .foregroundStyle(isFollowUpEntry ? PrimaryScale.primary600 : theme.foreground)
             .focused($focusedField, equals: .title)
             .textInputAutocapitalization(.words)
             .submitLabel(.next)
@@ -95,14 +95,15 @@ public struct AddEntryView: View {
             if text.isEmpty {
                 Text("Write your thoughts...")
                     .font(.system(size: 17))
+                    .lineSpacing(3.4)
                     .foregroundStyle(theme.mutedForeground.opacity(0.5))
                     .padding(.top, 8)
                     .allowsHitTesting(false)
             }
-            
+
             TextEditor(text: $text)
                 .font(.system(size: 17))
-                .lineSpacing(6) // 1.5x line height for readability
+                .lineSpacing(3.4) // 1.2x line height for readability
                 .foregroundStyle(theme.foreground)
                 .focused($focusedField, equals: .body)
                 .scrollContentBackground(.hidden)

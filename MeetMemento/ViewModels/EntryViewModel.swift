@@ -14,7 +14,8 @@ class EntryViewModel: ObservableObject {
     @Published var entries: [Entry] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
-    
+    @Published var completedFollowUpQuestions: [String] = [] // Tracks which questions have been answered
+
     private let supabaseService = SupabaseService.shared
    private var hasLoadedOnce = false
    private var isLoadingInProgress = false // Prevent concurrent load operations
@@ -153,32 +154,38 @@ class EntryViewModel: ObservableObject {
     }
     
     /// Creates a new follow-up entry and saves it to Supabase with optimistic UI.
-    func createFollowUpEntry(title: String, text: String) {
+    func createFollowUpEntry(title: String, text: String, question: String) {
         // Create optimistic entry for instant UI feedback
         let optimisticEntry = Entry(
             title: title.isEmpty ? "Untitled" : title,
             text: text,
             isFollowUp: true
         )
-        
+
         // Add to UI immediately (optimistic update)
         entries.insert(optimisticEntry, at: 0)
         print("✅ Optimistically created follow-up entry: \(optimisticEntry.id)")
-        
+
         // Save to Supabase in background
         Task {
             errorMessage = nil
-            
+
             do {
                 let savedEntry = try await supabaseService.createEntry(title: title, text: text)
-                
+
                 // Replace optimistic entry with real one from server, preserving follow-up flag
                 if let index = entries.firstIndex(where: { $0.id == optimisticEntry.id }) {
                     var followUpEntry = savedEntry
                     followUpEntry.isFollowUp = true
                     entries[index] = followUpEntry
                 }
-                
+
+                // Mark question as completed
+                if !completedFollowUpQuestions.contains(question) {
+                    completedFollowUpQuestions.append(question)
+                    print("✅ Marked follow-up question as completed: \(question)")
+                }
+
                 print("✅ Saved follow-up entry to Supabase: \(savedEntry.id)")
                 print("   Title: \(title.isEmpty ? "(Untitled)" : title)")
                 print("   Text: \(text.prefix(50))...")

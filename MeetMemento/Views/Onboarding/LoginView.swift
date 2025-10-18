@@ -103,8 +103,10 @@ public struct LoginView: View {
         request.nonce = hashed
 
         let controller = ASAuthorizationController(authorizationRequests: [request])
-        let delegate = AppleAuthDelegate(nonce: nonce) { status in
-            self.status = status ?? ""
+        let delegate = AppleAuthDelegate(nonce: nonce) { errorMessage, firstName, lastName in
+            self.status = errorMessage ?? "Signed in"
+            // Note: firstName and lastName are available here if needed
+            // For this simple demo view, we just show the status
         }
         controller.delegate = delegate
         controller.presentationContextProvider = delegate

@@ -128,6 +128,7 @@ struct JournalPageView: View {
                 // Display mode
                 Text(editedText)
                     .font(.system(size: 17))
+                    .lineSpacing(4)
                     .foregroundStyle(theme.foreground)
                     .textSelection(.enabled)
             } else {
@@ -136,13 +137,15 @@ struct JournalPageView: View {
                     if editedText.isEmpty {
                         Text("Write your thoughts...")
                             .font(.system(size: 17))
+                            .lineSpacing(4)
                             .foregroundStyle(theme.mutedForeground.opacity(0.5))
                             .padding(.top, 8)
                             .allowsHitTesting(false)
                     }
-                    
+
                     TextEditor(text: $editedText)
                         .font(.system(size: 17))
+                        .lineSpacing(4)
                         .foregroundStyle(theme.foreground)
                         .focused($focusedField, equals: .text)
                         .textInputAutocapitalization(.sentences)

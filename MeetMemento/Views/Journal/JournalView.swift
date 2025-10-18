@@ -12,7 +12,16 @@ public struct JournalView: View {
     @EnvironmentObject var entryViewModel: EntryViewModel
     @State private var showDeleteConfirmation: Bool = false
     @State private var entryToDelete: Entry?
-    
+
+    // Follow-up questions list
+    private let allFollowUpQuestions = [
+        "What was the most challenging part of your day?",
+        "How did you practice self-care today?",
+        "What are you grateful for right now?",
+        "What is one small step you can take tomorrow towards a goal?",
+        "Describe a moment that brought you joy today."
+    ]
+
     let onSettingsTapped: () -> Void
     let onNavigateToEntry: (EntryRoute) -> Void
     
@@ -66,7 +75,16 @@ public struct JournalView: View {
             Text("This action cannot be undone.")
         }
     }
-    
+
+    // MARK: - Computed Properties
+
+    /// Returns follow-up questions that haven't been completed yet
+    private var availableFollowUpQuestions: [String] {
+        allFollowUpQuestions.filter { question in
+            !entryViewModel.completedFollowUpQuestions.contains(question)
+        }
+    }
+
     // MARK: - Tab Content Views
     
     /// "Your Entries" tab - Shows all journal entries
@@ -191,46 +209,89 @@ public struct JournalView: View {
     }
     
     /// "Dig deeper" tab - Follow-up questions to help users reflect
+    @ViewBuilder
     private var digDeeperContent: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                // Header
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Reflection Questions")
-                        .font(type.h3)
-                        .headerGradient()
-                    
-                    Text("Explore these questions to deepen your self-awareness and growth.")
-                        .font(type.body)
-                        .foregroundStyle(theme.mutedForeground)
+        if entryViewModel.entries.isEmpty {
+            // Empty state - no entries yet
+            emptyState(
+                icon: "lightbulb.fill",
+                title: "No entries yet",
+                message: "Start writing journal entries to unlock reflection questions."
+            )
+        } else if entryViewModel.entries.count < 3 {
+            // Not enough entries yet
+            VStack(spacing: 16) {
+                Spacer()
+
+                Image(systemName: "square.stack.3d.up.fill")
+                    .font(.system(size: 48))
+                    .headerGradient()
+
+                Text("Keep writing!")
+                    .font(type.h3)
+                    .fontWeight(.semibold)
+                    .headerGradient()
+
+                Text("Write \(3 - entryViewModel.entries.count) more \(3 - entryViewModel.entries.count == 1 ? "entry" : "entries") to unlock reflection questions.")
+                    .font(type.body)
+                    .foregroundStyle(theme.mutedForeground)
+                    .multilineTextAlignment(.center)
+
+                Spacer()
+            }
+            .padding(.horizontal, 32)
+        } else {
+            // 3+ entries - show reflection questions with checklist
+            ScrollView {
+                LazyVStack(spacing: 16) {
+                    // Header
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Reflection Questions")
+                            .font(type.h3)
+                            .headerGradient()
+
+                        Text("Explore these questions to deepen your self-awareness and growth.")
+                            .font(type.body)
+                            .foregroundStyle(theme.mutedForeground)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 28) // 12px existing + 16px additional = 28px total
+
+                    // Follow-up question cards (all questions with completion state)
+                    VStack(spacing: 16) {
+                        ForEach(allFollowUpQuestions, id: \.self) { question in
+                            FollowUpCard(
+                                question: question,
+                                isCompleted: entryViewModel.completedFollowUpQuestions.contains(question)
+                            ) {
+                                onNavigateToEntry(.followUp(question))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+
+                    // Show completion message if all questions are answered
+                    if availableFollowUpQuestions.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 32))
+                                .headerGradient()
+
+                            Text("All caught up!")
+                                .font(type.h4)
+                                .fontWeight(.semibold)
+                                .headerGradient()
+
+                            Text("You've answered all reflection questions. Keep journaling!")
+                                .font(type.body)
+                                .foregroundStyle(theme.mutedForeground)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.top, 24)
+                        .padding(.horizontal, 32)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 28) // 12px existing + 16px additional = 28px total
-                
-                // Follow-up question cards
-                VStack(spacing: 16) {
-                    FollowUpCard(question: "What was the most challenging part of your day?") {
-                        print("Tapped: What was the most challenging part of your day?")
-                    }
-                    
-                    FollowUpCard(question: "How did you practice self-care today?") {
-                        print("Tapped: How did you practice self-care today?")
-                    }
-                    
-                    FollowUpCard(question: "What are you grateful for right now?") {
-                        print("Tapped: What are you grateful for right now?")
-                    }
-                    
-                    FollowUpCard(question: "What is one small step you can take tomorrow towards a goal?") {
-                        print("Tapped: What is one small step you can take tomorrow towards a goal?")
-                    }
-                    
-                    FollowUpCard(question: "Describe a moment that brought you joy today.") {
-                        print("Tapped: Describe a moment that brought you joy today.")
-                    }
-                }
-                .padding(.horizontal, 16)
             }
         }
     }

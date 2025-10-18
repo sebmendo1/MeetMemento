@@ -264,9 +264,53 @@ extension EnvironmentValues {
 }
 
 struct ThemeProvider: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorScheme) private var systemColorScheme
+    @State private var userPreference: AppThemePreference = .system
+
     func body(content: Content) -> some View {
-        content.environment(\.theme, colorScheme == .dark ? .dark : .light)
+        let effectiveTheme: Theme = {
+            switch userPreference {
+            case .system:
+                return systemColorScheme == .dark ? .dark : .light
+            case .light:
+                return .light
+            case .dark:
+                return .dark
+            }
+        }()
+
+        content
+            .environment(\.theme, effectiveTheme)
+            .preferredColorScheme(colorSchemeOverride)
+            .onAppear {
+                loadThemePreference()
+                observeThemeChanges()
+            }
+    }
+
+    private var colorSchemeOverride: ColorScheme? {
+        switch userPreference {
+        case .system:
+            return nil
+        case .light:
+            return .light
+        case .dark:
+            return .dark
+        }
+    }
+
+    private func loadThemePreference() {
+        userPreference = PreferencesService.shared.themePreference
+    }
+
+    private func observeThemeChanges() {
+        NotificationCenter.default.addObserver(
+            forName: .themePreferenceChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            loadThemePreference()
+        }
     }
 }
 

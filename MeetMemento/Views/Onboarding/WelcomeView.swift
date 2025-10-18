@@ -15,11 +15,13 @@ public struct WelcomeView: View {
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
     @StateObject private var authStatus = AuthStatusViewModel()
-    
+    @EnvironmentObject var authViewModel: AuthViewModel
+
     @State private var showSignUp = false
     @State private var showSignIn = false
     @State private var showCreateAccountSheet = false
     @State private var showSignInSheet = false
+    @State private var showOnboardingFlow = false
     @State private var appleNativeError: String = ""
     @State private var isLoadingAppleNative = false
 
@@ -53,16 +55,6 @@ public struct WelcomeView: View {
                 
                 // Authentication buttons
                 VStack(spacing: 16) {
-                    // Social OAuth buttons (web)
-                    GoogleSignInButton(title: "Sign in with Google") {
-                        Task { try? await AuthService.shared.signInWithGoogle() }
-                    }
-
-                    // Native Apple Sign-In (using ASAuthorizationController)
-                    AppleSignInButton(style: .black) {
-                        signInWithAppleNative()
-                    }
-                    .disabled(isLoadingAppleNative)
                     
                     // Sign In button (PrimaryButton)
                     PrimaryButton(title: "Sign In") {
@@ -92,7 +84,6 @@ public struct WelcomeView: View {
         .sheet(isPresented: $showCreateAccountSheet) {
             CreateAccountBottomSheet(onSignUpSuccess: {
                 showCreateAccountSheet = false
-                onNext?()
             })
             .useTheme()
             .useTypography()
@@ -101,11 +92,29 @@ public struct WelcomeView: View {
         .sheet(isPresented: $showSignInSheet) {
             SignInBottomSheet(onSignInSuccess: {
                 showSignInSheet = false
-                onNext?()
             })
             .useTheme()
             .useTypography()
             .environmentObject(authStatus)
+        }
+        .fullScreenCover(isPresented: $showOnboardingFlow) {
+            OnboardingCoordinatorView()
+                .useTheme()
+                .useTypography()
+                .environmentObject(authViewModel)
+        }
+        .onChange(of: authViewModel.authState) { oldState, newState in
+            // Watch combined auth state to prevent race conditions
+            AppLogger.log("WelcomeView: authState changed from \(oldState) to \(newState)", category: AppLogger.general)
+
+            // Show onboarding when user is authenticated but needs onboarding
+            if case .authenticated(let needsOnboarding) = newState, needsOnboarding {
+                // Add small delay to ensure any sheets are dismissed first
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    AppLogger.log("WelcomeView: Showing onboarding flow", category: AppLogger.general)
+                    showOnboardingFlow = true
+                }
+            }
         }
     }
 
@@ -123,11 +132,22 @@ public struct WelcomeView: View {
         request.nonce = hashedNonce
 
         let controller = ASAuthorizationController(authorizationRequests: [request])
-        let delegate = AppleAuthDelegate(nonce: nonce) { [self] errorMessage in
+        let delegate = AppleAuthDelegate(nonce: nonce) { [self]  errorMessage, firstName, lastName in
             DispatchQueue.main.async {
                 self.isLoadingAppleNative = false
                 if let error = errorMessage {
                     self.appleNativeError = error
+                } else {
+                    // Store pending names in AuthViewModel (if provided by Apple)
+                    if let first = firstName, let last = lastName, !first.isEmpty, !last.isEmpty {
+                        self.authViewModel.storePendingAppleProfile(firstName: first, lastName: last)
+                        AppLogger.log("✅ Stored Apple names from WelcomeView", category: AppLogger.general)
+                    }
+
+                    // Check auth state to trigger onboarding flow
+                    Task {
+                        await self.authViewModel.checkAuthState()
+                    }
                 }
             }
         }
@@ -142,6 +162,7 @@ public struct WelcomeView: View {
     WelcomeView()
         .useTheme()
         .useTypography()
+        .environmentObject(AuthViewModel())
         .preferredColorScheme(.light)
 }
 
@@ -149,5 +170,6 @@ public struct WelcomeView: View {
     WelcomeView()
         .useTheme()
         .useTypography()
+        .environmentObject(AuthViewModel())
         .preferredColorScheme(.dark)
 }

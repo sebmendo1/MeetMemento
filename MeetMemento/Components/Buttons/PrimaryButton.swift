@@ -26,7 +26,8 @@ public struct PrimaryButton: View {
         } label: {
             HStack(spacing: 8) {
                 if let systemImage { Image(systemName: systemImage) }
-                Text(title).buttonText(.init())
+                Text(title)
+                    .font(type.button)
                 if isLoading { ProgressView().tint(theme.primaryForeground) }
             }
             .padding(.vertical, 12)

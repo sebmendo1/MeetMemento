@@ -98,6 +98,65 @@ class SupabaseService {
         AppLogger.log("✅ User metadata updated", category: AppLogger.network)
     }
 
+    // MARK: - Onboarding Methods
+
+    /// Saves user's personalization text for AI prompt customization
+    func updateUserPersonalization(_ text: String) async throws {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        let attributes = UserAttributes(
+            data: ["user_personalization_node": .string(text)]
+        )
+
+        try await client.auth.update(user: attributes)
+        AppLogger.log("✅ User personalization saved", category: AppLogger.network)
+    }
+
+    /// Saves user's selected themes from onboarding
+    func updateUserThemes(_ themes: [String]) async throws {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        let themesJSON = themes.joined(separator: ",")
+        let attributes = UserAttributes(
+            data: ["selected_themes": .string(themesJSON)]
+        )
+
+        try await client.auth.update(user: attributes)
+        AppLogger.log("✅ User themes saved: \(themes.count) themes", category: AppLogger.network)
+    }
+
+    /// Marks onboarding as complete for the user
+    func completeUserOnboarding() async throws {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        let attributes = UserAttributes(
+            data: ["onboarding_completed": .bool(true)]
+        )
+
+        try await client.auth.update(user: attributes)
+        AppLogger.log("✅ Onboarding marked as complete", category: AppLogger.network)
+    }
+
+    /// Checks if user has completed onboarding
+    func hasCompletedOnboarding() async throws -> Bool {
+        guard let user = try await getCurrentUser() else {
+            return false
+        }
+
+        // Check for onboarding_completed flag in user metadata
+        if case .bool(let completed) = user.userMetadata["onboarding_completed"] {
+            return completed
+        }
+
+        return false
+    }
+
     /// Gets the current user ID with caching for better performance
     private func getCurrentUserId() async throws -> UUID {
         if let cachedUserId = cachedUserId {
@@ -331,19 +390,163 @@ class SupabaseService {
         guard let client = client else {
             throw SupabaseServiceError.clientNotConfigured
         }
-        
+
         try await client
             .from("entries")
             .delete()
             .eq("id", value: id.uuidString)
             .execute()
-        
+
         AppLogger.log("🗑️ Deleted entry: \(id)", category: AppLogger.network)
     }
-    
+
+    // MARK: - Entry Statistics & Counting
+
+    /// Gets the total number of journal entries for the current user
+    /// Returns: Integer count of entries
+    func getUserEntryCount() async throws -> Int {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        // Call the get_user_entry_count() SQL function
+        let count: Int = try await client
+            .rpc("get_user_entry_count")
+            .execute()
+            .value
+
+        AppLogger.log("📊 User has \(count) journal entries", category: AppLogger.network)
+        return count
+    }
+
+    /// Gets detailed statistics about the user's journal entries
+    /// Returns: EntryStats object with total, weekly, monthly counts and dates
+    func getUserEntryStats() async throws -> EntryStats {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        // Call the get_user_entry_stats() SQL function
+        // Note: Function returns a single-row table, so we get first element
+        let statsArray: [EntryStats] = try await client
+            .rpc("get_user_entry_stats")
+            .execute()
+            .value
+
+        guard let stats = statsArray.first else {
+            // Return empty stats if no data
+            return EntryStats(
+                totalEntries: 0,
+                entriesThisWeek: 0,
+                entriesThisMonth: 0,
+                firstEntryDate: nil,
+                lastEntryDate: nil
+            )
+        }
+
+        AppLogger.log("📊 Entry stats - Total: \(stats.totalEntries), Week: \(stats.entriesThisWeek), Month: \(stats.entriesThisMonth)",
+                     category: AppLogger.network)
+        return stats
+    }
+
+    // MARK: - Account Deletion
+
+    /// Deletes the user's account and all associated data
+    /// WARNING: This action is irreversible
+    ///
+    /// NOTE: For complete account deletion, a database function should be set up in Supabase.
+    /// If the function is not set up, user data will be deleted but the auth account will remain
+    /// (user will be signed out and can't access their data anymore).
+    ///
+    /// To set up the function, run this SQL in your Supabase SQL Editor:
+    /// ```sql
+    /// CREATE OR REPLACE FUNCTION delete_user()
+    /// RETURNS void
+    /// LANGUAGE plpgsql
+    /// SECURITY DEFINER
+    /// AS $$
+    /// BEGIN
+    ///   DELETE FROM auth.users WHERE id = auth.uid();
+    /// END;
+    /// $$;
+    /// ```
+    func deleteAccount() async throws {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        // Get user ID before deleting
+        let userId = try await getCurrentUserId()
+
+        // Step 1: Delete all user entries from database
+        do {
+            try await client
+                .from("entries")
+                .delete()
+                .eq("user_id", value: userId.uuidString)
+                .execute()
+
+            AppLogger.log("🗑️ Deleted all entries for user: \(userId)", category: AppLogger.network)
+        } catch {
+            AppLogger.log("❌ Failed to delete user entries: \(error.localizedDescription)",
+                         category: AppLogger.network,
+                         type: .error)
+            throw error
+        }
+
+        // Step 2: Try to delete user account from auth (requires database function)
+        // This will also delete user metadata automatically
+        do {
+            try await client.rpc("delete_user").execute()
+            AppLogger.log("✅ User account fully deleted from auth: \(userId)", category: AppLogger.network)
+        } catch {
+            // If delete_user function doesn't exist, that's okay - user data is deleted
+            // The user will be signed out and can't access their data anymore
+            AppLogger.log("⚠️ Could not delete auth account (RPC function may not exist). User data has been deleted. User will be signed out.",
+                         category: AppLogger.network,
+                         type: .default)
+            // Don't throw - allow the process to continue since data is deleted
+        }
+
+        // Clear cached user ID
+        cachedUserId = nil
+    }
+
     // MARK: - Storage Operations
-    
+
     // Add your storage methods here
+}
+
+// MARK: - Data Models
+
+/// Statistics about a user's journal entries
+/// Returned by getUserEntryStats() function
+struct EntryStats: Codable {
+    let totalEntries: Int
+    let entriesThisWeek: Int
+    let entriesThisMonth: Int
+    let firstEntryDate: String?
+    let lastEntryDate: String?
+
+    enum CodingKeys: String, CodingKey {
+        case totalEntries = "total_entries"
+        case entriesThisWeek = "entries_this_week"
+        case entriesThisMonth = "entries_this_month"
+        case firstEntryDate = "first_entry_date"
+        case lastEntryDate = "last_entry_date"
+    }
+
+    /// Convenience computed property for first entry as Date
+    var firstEntryAsDate: Date? {
+        guard let dateString = firstEntryDate else { return nil }
+        return ISO8601DateFormatter().date(from: dateString)
+    }
+
+    /// Convenience computed property for last entry as Date
+    var lastEntryAsDate: Date? {
+        guard let dateString = lastEntryDate else { return nil }
+        return ISO8601DateFormatter().date(from: dateString)
+    }
 }
 
 // MARK: - Errors

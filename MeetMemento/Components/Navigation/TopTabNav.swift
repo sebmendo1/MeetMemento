@@ -1,5 +1,5 @@
 //
-//  TopNav.swift (height-normalized)
+//  TopNav.swift (fixed + animated preview)
 //  MeetMemento
 //
 
@@ -29,14 +29,12 @@ public struct TopNav: View {
     @Binding public var selection: JournalTopTab
 
     // Consistent layout
-    private let navHeight: CGFloat = 44     // ✅ same height for all variants
+    private let navHeight: CGFloat = 44
     private let labelSpacing: CGFloat = 12
     private let hitPadding: CGFloat = 4
 
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
-    
-    // For smooth liquid glass animation
     @Namespace private var tabAnimation
 
     public init(variant: TopNavVariant, selection: Binding<JournalTopTab>) {
@@ -53,26 +51,26 @@ public struct TopNav: View {
                     .accessibilityLabel("Top Navigation Tabs")
 
             case .single:
-                // Plain header style but height matches selected tab
                 Text("Your Insights")
-                    .font(type.bodyBold)            // match pill tab font
+                    .font(type.bodyBold)
                     .foregroundStyle(theme.primary)
                     .padding(.horizontal, hitPadding)
                     .contentShape(Rectangle())
                     .accessibilityAddTraits(.isHeader)
 
             case .singleSelected:
-                // Styled exactly like a selected tab (no scale so height stays fixed)
                 Text("Your Insights")
-                    .font(type.bodyBold)            // match pill tab font
+                    .font(type.bodyBold)
                     .foregroundStyle(theme.primary)
                     .padding(.horizontal, hitPadding)
                     .contentShape(Rectangle())
                     .accessibilityAddTraits([.isHeader, .isSelected])
             }
         }
-        .frame(height: navHeight, alignment: .center) // ✅ locks height across states
+        .frame(height: navHeight, alignment: .center)
         .background(.clear)
+        // ✅ Drive all geometry transitions off selection
+        .animation(.spring(response: 0.32, dampingFraction: 0.85, blendDuration: 0.12), value: selection)
     }
 
     // MARK: - Tabs Content
@@ -88,34 +86,18 @@ public struct TopNav: View {
         let isSelected = (tab == selection)
 
         Button {
-            guard !isSelected else { 
-                print("🚫 Tab already selected: \(tab.title)")
-                return 
-            }
-            print("👆 Tab clicked: \(tab.title), current selection: \(selection.title)")
-            print("   Tab enum value: \(tab)")
-            print("   Current selection enum: \(selection)")
+            guard !isSelected else { return }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            
-            // Update selection with explicit state change
-            print("   🔄 Setting selection to: \(tab)")
-            
-            // Force a state change by updating twice (common SwiftUI workaround)
-            selection = tab
-            DispatchQueue.main.async {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.85, blendDuration: 0.12)) {
                 selection = tab
             }
-            
-            print("   ✅ Selection is now: \(selection)")
         } label: {
-            // Tab label text
             Text(tab.title)
-                .font(type.bodyBold) // Use Manrope bold for tabs
-                .foregroundStyle(theme.primary) // Same color for both states
-                .padding(.horizontal, 16) // More padding for pill shape
+                .font(type.bodyBold)
+                .foregroundStyle(theme.primary)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
-                    // Animated pill background using matchedGeometryEffect
                     ZStack {
                         if isSelected {
                             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -124,73 +106,48 @@ public struct TopNav: View {
                         }
                     }
                 )
-                .frame(maxHeight: .infinity) // vertically centers within 44pt
+                .frame(maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .accessibilityAddTraits(isSelected ? [.isHeader, .isSelected] : [.isHeader])
         }
         .buttonStyle(.plain)
+        .zIndex(isSelected ? 1 : 0) // ✅ ensure selected pill stays visually on top
     }
 }
 
-// MARK: - PreviewProvider (shows all states with identical height)
-struct TopNav_Previews: PreviewProvider {
-    private struct TabsWrapper: View {
-        @State private var selection: JournalTopTab = .yourEntries
-        var body: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                TopNav(variant: .tabs, selection: $selection)
-                    .useTheme()
-                    .useTypography()
-                    .frame(width: 320)
+#Preview {
+    VStack(spacing: 24) {
+        // Simulated environment
+        TopNav(variant: .tabs, selection: .constant(.yourEntries))
+            .environment(\.theme, Theme.light)
+            .environment(\.typography, Typography())
+            .previewDisplayName("Static (Your Entries)")
 
-                Text("Selected: \(selection.title)")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            .padding()
-            .background(Theme.light.background)
-        }
+        TopNavPreviewInteractive()
+            .previewDisplayName("Interactive Switch")
     }
+    .padding()
+    .background(Color(.systemBackground))
+}
 
-    private struct SingleVariantsWrapper: View {
-        var body: some View {
-            VStack(spacing: 12) {
-                TopNav(variant: .single, selection: .constant(.yourEntries))
-                    .useTheme()
-                    .useTypography()
-                    .frame(width: 320)
+// MARK: - Interactive Preview
+private struct TopNavPreviewInteractive: View {
+    @State private var selection: JournalTopTab = .yourEntries
 
-                TopNav(variant: .singleSelected, selection: .constant(.yourEntries))
-                    .useTheme()
-                    .useTypography()
-                    .frame(width: 320)
-            }
-            .padding()
-            .background(Theme.light.background)
+    var body: some View {
+        VStack(spacing: 12) {
+            TopNav(variant: .tabs, selection: $selection)
+                .environment(\.theme, Theme.light)
+                .environment(\.typography, Typography())
+                .frame(width: 320)
+
+            Text("Selected: \(selection.title)")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
-    }
-
-    static var previews: some View {
-        Group {
-            TabsWrapper()
-                .previewDisplayName("Tabs • Light")
-                .preferredColorScheme(.light)
-                .previewLayout(.sizeThatFits)
-
-            TabsWrapper()
-                .previewDisplayName("Tabs • Dark")
-                .preferredColorScheme(.dark)
-                .previewLayout(.sizeThatFits)
-
-            SingleVariantsWrapper()
-                .previewDisplayName("Single + SingleSelected • Light")
-                .preferredColorScheme(.light)
-                .previewLayout(.sizeThatFits)
-
-            SingleVariantsWrapper()
-                .previewDisplayName("Single + SingleSelected • Dark")
-                .preferredColorScheme(.dark)
-                .previewLayout(.sizeThatFits)
-        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(radius: 1)
     }
 }

@@ -9,19 +9,72 @@ import Foundation
 import SwiftUI
 import Supabase
 
+// MARK: - Authentication State
+
+/// Combined authentication state that prevents race conditions
+/// between isAuthenticated and hasCompletedOnboarding updates
+public enum AuthState: Equatable {
+    case unauthenticated
+    case authenticated(needsOnboarding: Bool)
+
+    var isAuthenticated: Bool {
+        switch self {
+        case .unauthenticated:
+            return false
+        case .authenticated:
+            return true
+        }
+    }
+
+    var needsOnboarding: Bool {
+        switch self {
+        case .unauthenticated:
+            return false
+        case .authenticated(let needsOnboarding):
+            return needsOnboarding
+        }
+    }
+}
+
 @MainActor
 class AuthViewModel: ObservableObject {
+    // Combined authentication state (atomic updates)
+    @Published var authState: AuthState = .unauthenticated
+
+    // Legacy properties for backwards compatibility
     @Published var isAuthenticated = false
     @Published var currentUser: Supabase.User?
     @Published var isLoading = false
-    private var authCheckInProgress = false  // NEW: Prevent duplicate checks
+    @Published var hasCompletedOnboarding = false  // Changed default to false for safety
+    private var authCheckInProgress = false
 
     // Passwordless auth state
     @Published var otpSent: Bool = false
     @Published var userEmail: String = ""
 
+    // Temporary storage for Apple-provided names (pending profile save)
+    @Published var pendingFirstName: String? = nil
+    @Published var pendingLastName: String? = nil
+
     init() {
         // NO async work in init - prevents SIGKILL crashes
+    }
+
+    // MARK: - Pending Profile Management
+
+    /// Store Apple-provided names temporarily until user confirms in CreateAccountView
+    func storePendingAppleProfile(firstName: String?, lastName: String?) {
+        pendingFirstName = firstName
+        pendingLastName = lastName
+        AppLogger.log("✅ Stored pending Apple profile: \(firstName ?? "") \(lastName ?? "")",
+                     category: AppLogger.general)
+    }
+
+    /// Clear pending profile data after successful save
+    func clearPendingProfile() {
+        pendingFirstName = nil
+        pendingLastName = nil
+        AppLogger.log("✅ Cleared pending profile data", category: AppLogger.general)
     }
     
     /// Initialize auth state after UI renders
@@ -44,38 +97,88 @@ class AuthViewModel: ObservableObject {
         // Prevent duplicate simultaneous checks
         guard !authCheckInProgress else { return }
         authCheckInProgress = true
-        
+
         // Only show loading if we don't already know the auth state
         // This prevents UI flickering when re-checking after login
-        let shouldShowLoading = !isAuthenticated && currentUser == nil
+        let shouldShowLoading = !authState.isAuthenticated && currentUser == nil
         if shouldShowLoading {
             isLoading = true
         }
-        
+
         do {
             // Add timeout to prevent indefinite hanging
             currentUser = try await withTimeout(seconds: 2) {
                 try await SupabaseService.shared.getCurrentUser()
             }
-            isAuthenticated = currentUser != nil
-            
+
             if let user = currentUser {
-                AppLogger.log("User authenticated: \(user.email ?? "Unknown")",
-                             category: AppLogger.general)
+                // User is authenticated - check onboarding status atomically
+                let needsOnboarding: Bool
+                do {
+                    let onboardingComplete = try await SupabaseService.shared.hasCompletedOnboarding()
+                    needsOnboarding = !onboardingComplete
+                    AppLogger.log("User authenticated: \(user.email ?? "Unknown"), needsOnboarding: \(needsOnboarding)",
+                                 category: AppLogger.general)
+                } catch {
+                    // On error checking onboarding, assume complete to avoid blocking user
+                    needsOnboarding = false
+                    AppLogger.log("Error checking onboarding, assuming complete: \(error.localizedDescription)",
+                                 category: AppLogger.general,
+                                 type: .error)
+                }
+
+                // Update ALL state atomically
+                authState = .authenticated(needsOnboarding: needsOnboarding)
+                isAuthenticated = true
+                hasCompletedOnboarding = !needsOnboarding
+
             } else {
                 AppLogger.log("No authenticated user", category: AppLogger.general)
+                authState = .unauthenticated
+                isAuthenticated = false
+                hasCompletedOnboarding = false
             }
         } catch {
             AppLogger.log("Auth check error: \(error.localizedDescription)",
                          category: AppLogger.general,
                          type: .error)
+            authState = .unauthenticated
             isAuthenticated = false
             currentUser = nil
+            hasCompletedOnboarding = false
         }
-        
+
         isLoading = false
         authCheckInProgress = false
     }
+
+    /// Check if user has completed onboarding (legacy - now handled atomically in checkAuthState)
+    func checkOnboardingStatus() async {
+        guard authState.isAuthenticated else {
+            authState = .unauthenticated
+            hasCompletedOnboarding = false
+            return
+        }
+
+        do {
+            let onboardingComplete = try await SupabaseService.shared.hasCompletedOnboarding()
+            let needsOnboarding = !onboardingComplete
+
+            // Update state atomically
+            authState = .authenticated(needsOnboarding: needsOnboarding)
+            hasCompletedOnboarding = onboardingComplete
+
+            AppLogger.log("Onboarding status updated: complete=\(onboardingComplete)", category: AppLogger.general)
+        } catch {
+            AppLogger.log("Error checking onboarding status: \(error.localizedDescription)",
+                         category: AppLogger.general,
+                         type: .error)
+            // On error, assume onboarding is complete to avoid blocking user
+            authState = .authenticated(needsOnboarding: false)
+            hasCompletedOnboarding = true
+        }
+    }
+
     // MARK: - Timeout Helper
     
     private func withTimeout<T>(
@@ -137,10 +240,11 @@ class AuthViewModel: ObservableObject {
             token: code
         )
 
-        // Check auth state after verification
+        // IMPORTANT: Check auth state which now atomically updates both
+        // isAuthenticated AND hasCompletedOnboarding to prevent race conditions
         await checkAuthState()
 
-        AppLogger.log("OTP verified, authenticated: \(isAuthenticated)", category: AppLogger.general)
+        AppLogger.log("OTP verified - authState: \(authState)", category: AppLogger.general)
     }
 
     /// Check if user needs to complete profile (for new users)
@@ -166,6 +270,21 @@ class AuthViewModel: ObservableObject {
         await checkAuthState()
 
         AppLogger.log("Profile updated for user", category: AppLogger.general)
+    }
+
+    // MARK: - Account Deletion
+
+    /// Deletes the user's account and all associated data
+    /// WARNING: This action is irreversible
+    func deleteAccount() async throws {
+        try await SupabaseService.shared.deleteAccount()
+
+        // Sign out after successful deletion
+        currentUser = nil
+        isAuthenticated = false
+        hasCompletedOnboarding = true
+
+        AppLogger.log("User account deleted and signed out", category: AppLogger.general)
     }
 }
 
