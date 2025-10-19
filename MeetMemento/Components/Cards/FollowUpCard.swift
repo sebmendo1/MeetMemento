@@ -20,6 +20,9 @@ struct FollowUpCard: View {
 
     var body: some View {
         Button(action: {
+            // Don't allow tapping if already completed
+            guard !isCompleted else { return }
+
             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
             impactFeedback.impactOccurred()
             onTap()
@@ -70,10 +73,13 @@ struct FollowUpCard: View {
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            // Only show press animation if not completed
+            guard !isCompleted else { return }
             withAnimation(.easeInOut(duration: 0.1)) {
                 isPressed = pressing
             }
         }, perform: {})
+        .disabled(isCompleted) // Disable button interaction when completed
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Follow-up question: \(question)")
         .accessibilityHint(isCompleted ? "Completed" : "Tap to journal about this reflection question")

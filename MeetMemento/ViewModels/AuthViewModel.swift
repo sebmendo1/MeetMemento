@@ -46,7 +46,9 @@ class AuthViewModel: ObservableObject {
     @Published var currentUser: Supabase.User?
     @Published var isLoading = false
     @Published var hasCompletedOnboarding = false  // Changed default to false for safety
-    private var authCheckInProgress = false
+
+    // Auth check guard - uses Swift actor for async-safe locking
+    private let checkGuard = AuthCheckGuard()
 
     // Passwordless auth state
     @Published var otpSent: Bool = false
@@ -56,8 +58,16 @@ class AuthViewModel: ObservableObject {
     @Published var pendingFirstName: String? = nil
     @Published var pendingLastName: String? = nil
 
+    // UserDefaults keys for caching auth state
+    private let cachedAuthStateKey = "com.meetmemento.cachedAuthState"
+    private let cachedOnboardingKey = "com.meetmemento.cachedOnboarding"
+
     init() {
         // NO async work in init - prevents SIGKILL crashes
+        print("🟢 AuthViewModel init() called")
+
+        // Immediately restore cached auth state for instant UI update
+        restoreCachedAuthState()
     }
 
     // MARK: - Pending Profile Management
@@ -76,11 +86,52 @@ class AuthViewModel: ObservableObject {
         pendingLastName = nil
         AppLogger.log("✅ Cleared pending profile data", category: AppLogger.general)
     }
-    
+
+    // MARK: - Auth State Caching
+
+    /// Restores cached auth state from UserDefaults for instant UI update
+    /// This runs synchronously in init() to avoid showing wrong views
+    private func restoreCachedAuthState() {
+        let isAuthenticatedCached = UserDefaults.standard.bool(forKey: cachedAuthStateKey)
+        let hasOnboardingCached = UserDefaults.standard.bool(forKey: cachedOnboardingKey)
+
+        // Only restore if user was authenticated
+        if isAuthenticatedCached {
+            let needsOnboarding = !hasOnboardingCached
+
+            // Update state immediately (no await needed - we're in init)
+            authState = .authenticated(needsOnboarding: needsOnboarding)
+            isAuthenticated = true
+            hasCompletedOnboarding = hasOnboardingCached
+
+            print("🟢 Restored cached auth state: authenticated=\(isAuthenticatedCached), onboarding=\(hasOnboardingCached)")
+            AppLogger.log("✅ Restored cached auth state - skipping loading screen", category: AppLogger.general)
+        } else {
+            print("🟢 No cached auth state - user not authenticated")
+        }
+    }
+
+    /// Saves current auth state to UserDefaults for next app launch
+    private func cacheAuthState() {
+        UserDefaults.standard.set(isAuthenticated, forKey: cachedAuthStateKey)
+        UserDefaults.standard.set(hasCompletedOnboarding, forKey: cachedOnboardingKey)
+        print("🟢 Cached auth state: authenticated=\(isAuthenticated), onboarding=\(hasCompletedOnboarding)")
+    }
+
+    /// Clears cached auth state (call on sign out)
+    private func clearCachedAuthState() {
+        UserDefaults.standard.removeObject(forKey: cachedAuthStateKey)
+        UserDefaults.standard.removeObject(forKey: cachedOnboardingKey)
+        print("🟢 Cleared cached auth state")
+    }
+
     /// Initialize auth state after UI renders
     func initializeAuth() async {
+        print("🟢 AuthViewModel.initializeAuth() called")
         await checkAuthState()
+        print("🟢 AuthViewModel.checkAuthState() completed")
         await setupAuthObserver()
+        print("🟢 AuthViewModel.setupAuthObserver() completed")
     }
     
     private func setupAuthObserver() async {
@@ -94,9 +145,13 @@ class AuthViewModel: ObservableObject {
     // MARK: - Auth State Management
     
     func checkAuthState() async {
-        // Prevent duplicate simultaneous checks
-        guard !authCheckInProgress else { return }
-        authCheckInProgress = true
+        print("🟢 checkAuthState() START")
+        // Prevent duplicate simultaneous checks with async-safe actor guard
+        guard await checkGuard.beginCheck() else {
+            print("🟢 checkAuthState() SKIP - already in progress")
+            return
+        }
+        defer { Task { await checkGuard.endCheck() } }
 
         // Only show loading if we don't already know the auth state
         // This prevents UI flickering when re-checking after login
@@ -105,38 +160,42 @@ class AuthViewModel: ObservableObject {
             isLoading = true
         }
 
+        print("🟢 checkAuthState() About to call getCurrentUser()...")
         do {
-            // Add timeout to prevent indefinite hanging
-            currentUser = try await withTimeout(seconds: 2) {
+            // Add timeout to prevent indefinite hanging (5s for OAuth token exchange + network latency)
+            currentUser = try await withTimeout(seconds: 5) {
                 try await SupabaseService.shared.getCurrentUser()
             }
+            print("🟢 checkAuthState() getCurrentUser() returned")
 
             if let user = currentUser {
-                // User is authenticated - check onboarding status atomically
-                let needsOnboarding: Bool
-                do {
-                    let onboardingComplete = try await SupabaseService.shared.hasCompletedOnboarding()
-                    needsOnboarding = !onboardingComplete
-                    AppLogger.log("User authenticated: \(user.email ?? "Unknown"), needsOnboarding: \(needsOnboarding)",
-                                 category: AppLogger.general)
-                } catch {
-                    // On error checking onboarding, assume complete to avoid blocking user
-                    needsOnboarding = false
-                    AppLogger.log("Error checking onboarding, assuming complete: \(error.localizedDescription)",
-                                 category: AppLogger.general,
-                                 type: .error)
+                // User is authenticated - check onboarding status directly from metadata (synchronous)
+                let onboardingComplete: Bool
+                if case .bool(let completed) = user.userMetadata["onboarding_completed"] {
+                    onboardingComplete = completed
+                } else {
+                    onboardingComplete = false // Default to incomplete if flag not set
                 }
+                let needsOnboarding = !onboardingComplete
+                AppLogger.log("User authenticated: \(user.email ?? "Unknown"), needsOnboarding: \(needsOnboarding)",
+                             category: AppLogger.general)
 
                 // Update ALL state atomically
                 authState = .authenticated(needsOnboarding: needsOnboarding)
                 isAuthenticated = true
                 hasCompletedOnboarding = !needsOnboarding
 
+                // Cache auth state for next app launch
+                cacheAuthState()
+
             } else {
                 AppLogger.log("No authenticated user", category: AppLogger.general)
                 authState = .unauthenticated
                 isAuthenticated = false
                 hasCompletedOnboarding = false
+
+                // Clear cached auth state
+                clearCachedAuthState()
             }
         } catch {
             AppLogger.log("Auth check error: \(error.localizedDescription)",
@@ -146,37 +205,37 @@ class AuthViewModel: ObservableObject {
             isAuthenticated = false
             currentUser = nil
             hasCompletedOnboarding = false
+
+            // Clear cached auth state on error
+            clearCachedAuthState()
         }
 
         isLoading = false
-        authCheckInProgress = false
+        print("🟢 checkAuthState() END - auth state: \(authState)")
     }
 
     /// Check if user has completed onboarding (legacy - now handled atomically in checkAuthState)
     func checkOnboardingStatus() async {
-        guard authState.isAuthenticated else {
+        guard authState.isAuthenticated, let user = currentUser else {
             authState = .unauthenticated
             hasCompletedOnboarding = false
             return
         }
 
-        do {
-            let onboardingComplete = try await SupabaseService.shared.hasCompletedOnboarding()
-            let needsOnboarding = !onboardingComplete
-
-            // Update state atomically
-            authState = .authenticated(needsOnboarding: needsOnboarding)
-            hasCompletedOnboarding = onboardingComplete
-
-            AppLogger.log("Onboarding status updated: complete=\(onboardingComplete)", category: AppLogger.general)
-        } catch {
-            AppLogger.log("Error checking onboarding status: \(error.localizedDescription)",
-                         category: AppLogger.general,
-                         type: .error)
-            // On error, assume onboarding is complete to avoid blocking user
-            authState = .authenticated(needsOnboarding: false)
-            hasCompletedOnboarding = true
+        // Check onboarding status directly from user metadata (synchronous)
+        let onboardingComplete: Bool
+        if case .bool(let completed) = user.userMetadata["onboarding_completed"] {
+            onboardingComplete = completed
+        } else {
+            onboardingComplete = false // Default to incomplete if flag not set
         }
+        let needsOnboarding = !onboardingComplete
+
+        // Update state atomically
+        authState = .authenticated(needsOnboarding: needsOnboarding)
+        hasCompletedOnboarding = onboardingComplete
+
+        AppLogger.log("Onboarding status updated: complete=\(onboardingComplete)", category: AppLogger.general)
     }
 
     // MARK: - Timeout Helper
@@ -214,6 +273,11 @@ class AuthViewModel: ObservableObject {
             try await SupabaseService.shared.signOut()
             currentUser = nil
             isAuthenticated = false
+            authState = .unauthenticated
+            hasCompletedOnboarding = false
+
+            // Clear cached auth state
+            clearCachedAuthState()
 
             AppLogger.log("User signed out", category: AppLogger.general)
         } catch {
@@ -282,9 +346,34 @@ class AuthViewModel: ObservableObject {
         // Sign out after successful deletion
         currentUser = nil
         isAuthenticated = false
-        hasCompletedOnboarding = true
+        authState = .unauthenticated
+        hasCompletedOnboarding = false
+
+        // Clear cached auth state
+        clearCachedAuthState()
 
         AppLogger.log("User account deleted and signed out", category: AppLogger.general)
+    }
+}
+
+// MARK: - Auth Check Guard Actor
+
+/// Async-safe guard for preventing duplicate auth checks
+/// Replaces NSLock which is unsafe in async contexts
+actor AuthCheckGuard {
+    private var isInProgress = false
+
+    /// Attempts to begin an auth check
+    /// Returns true if check should proceed, false if already in progress
+    func beginCheck() -> Bool {
+        guard !isInProgress else { return false }
+        isInProgress = true
+        return true
+    }
+
+    /// Marks auth check as complete
+    func endCheck() {
+        isInProgress = false
     }
 }
 

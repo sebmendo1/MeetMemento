@@ -1,51 +1,45 @@
-// generate-follow-up/types.ts
-//
+// types.ts
 // TypeScript type definitions for the generate-follow-up function
-//
-// Purpose:
-// - Define interfaces for request/response
-// - Define database table types
-// - Ensure type safety across modules
 
-// TODO: Define Entry interface (from Supabase database)
-// export interface Entry {
-//   id: string
-//   user_id: string
-//   text: string
-//   title: string
-//   created_at: string
-//   is_follow_up: boolean
-// }
+/**
+ * Response format for generated questions
+ */
+export interface QuestionResponse {
+  text: string;
+  score: number;
+}
 
-// TODO: Define FollowUpQuestion interface (from Supabase database)
-// export interface FollowUpQuestion {
-//   id: string
-//   user_id: string
-//   question_text: string
-//   relevance_score: number
-//   generated_at: string
-//   expires_at: string
-//   is_answered: boolean
-//   answered_at: string | null
-//   source_entry_ids: string[]
-// }
+/**
+ * Successful response from generate-follow-up function
+ */
+export interface GenerateResponse {
+  questions: QuestionResponse[];
+  metadata?: {
+    entriesAnalyzed: number;
+    generatedAt: string;
+    themesCount: number;
+  };
+}
 
-// TODO: Define function request/response types
-// export interface GenerateQuestionsRequest {
-//   // Currently no request body needed (user ID from JWT)
-// }
+/**
+ * Error response format
+ */
+export interface ErrorResponse {
+  error: string;
+  details?: string;
+  currentEntries?: number;
+  required?: number;
+}
 
-// export interface GenerateQuestionsResponse {
-//   questions: FollowUpQuestion[]
-//   metadata?: {
-//     entriesAnalyzed: number
-//     generatedAt: string
-//     expiresAt: string
-//   }
-// }
-
-// TODO: Define error response type
-// export interface ErrorResponse {
-//   error: string
-//   details?: string
-// }
+/**
+ * Database entry type (from journal_entries table)
+ */
+export interface JournalEntry {
+  id: string;
+  user_id: string;
+  text: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  is_follow_up: boolean;
+}

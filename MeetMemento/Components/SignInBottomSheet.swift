@@ -120,11 +120,10 @@ public struct SignInBottomSheet: View {
                             Task {
                                 do {
                                     try await AuthService.shared.signInWithGoogle()
-                                    // Check auth state after OAuth completes
+                                    // Check auth state after OAuth completes (includes onboarding check)
                                     await authViewModel.checkAuthState()
-                                    await authViewModel.checkOnboardingStatus()
 
-                                    // OAuth success - check auth state and dismiss
+                                    // OAuth success - dismiss
                                     await MainActor.run {
                                         dismiss()
                                         onSignInSuccess?()

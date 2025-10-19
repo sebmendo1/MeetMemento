@@ -33,7 +33,8 @@ private enum AppTab: String, CaseIterable, Identifiable, Hashable, LabeledTab {
 public enum EntryRoute: Hashable {
     case create
     case edit(Entry)
-    case followUp(String) // String is the follow-up question
+    case followUp(String) // Legacy: hardcoded follow-up question
+    case followUpGenerated(questionText: String, questionId: UUID) // NEW: Database-backed question
 }
 
 // MARK: - Navigation route for settings
@@ -115,8 +116,26 @@ public struct ContentView: View {
                         navigationPath.removeLast()
                     }
                 case .followUp(let question):
+                    // Legacy: Hardcoded question (no database tracking)
                     AddEntryView(entry: nil, followUpQuestion: question) { title, text in
-                        entryViewModel.createFollowUpEntry(title: title, text: text, question: question)
+                        entryViewModel.createFollowUpEntry(
+                            title: title,
+                            text: text,
+                            questionId: nil,  // No ID for legacy questions
+                            question: question
+                        )
+                        // Show success screen instead of immediately going back
+                        showJournalCreated = true
+                    }
+                case .followUpGenerated(let questionText, let questionId):
+                    // NEW: Database-backed question with completion tracking
+                    AddEntryView(entry: nil, followUpQuestion: questionText) { title, text in
+                        entryViewModel.createFollowUpEntry(
+                            title: title,
+                            text: text,
+                            questionId: questionId,  // Pass question ID for database completion
+                            question: questionText
+                        )
                         // Show success screen instead of immediately going back
                         showJournalCreated = true
                     }
@@ -148,11 +167,7 @@ public struct ContentView: View {
         }
         .useTheme()
         .useTypography()
-        .task {
-            // Preload entries immediately when ContentView appears
-            // This ensures data is ready before JournalView is shown
-            await entryViewModel.loadEntriesIfNeeded()
-        }
+        // Note: Entry loading is deferred to JournalView for faster app launch
     }
 }
 

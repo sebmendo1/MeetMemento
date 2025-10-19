@@ -122,9 +122,8 @@ public struct CreateAccountBottomSheet: View {
                             Task {
                                 do {
                                     try await AuthService.shared.signInWithGoogle()
-                                    // Check auth state after OAuth completes
+                                    // Check auth state after OAuth completes (includes onboarding check)
                                     await authViewModel.checkAuthState()
-                                    await authViewModel.checkOnboardingStatus()
 
                                     // OAuth success - dismiss sheet and let WelcomeView handle onboarding
                                     await MainActor.run {

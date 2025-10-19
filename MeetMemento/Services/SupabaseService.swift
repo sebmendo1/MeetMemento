@@ -8,29 +8,57 @@ import Supabase
 
 class SupabaseService {
     static let shared = SupabaseService()
-    
-    private var client: SupabaseClient?
+
+    internal var client: SupabaseClient?
     private var cachedUserId: UUID? // Cache user ID to avoid repeated calls
+    private var isInitialized = false
     var supabase: SupabaseClient? { client }
-    
+
     private init() {
+        // Don't initialize client here - do it lazily on first use
+        print("🔵 SupabaseService init() called")
+    }
+
+    /// Lazily initialize the Supabase client on first use
+    private func ensureClientInitialized() {
+        guard !isInitialized else {
+            print("🔵 SupabaseService: Already initialized")
+            return
+        }
+        isInitialized = true
+
+        print("🔵 SupabaseService: Initializing client...")
+
         // Configure your Supabase client
         // Make sure to update SupabaseConfig.swift with your actual credentials
+        print("🔵 SupabaseService: Checking config...")
+        print("   URL: \(SupabaseConfig.url)")
+        print("   Has anon key: \(!SupabaseConfig.anonKey.isEmpty)")
+
         guard let url = URL(string: SupabaseConfig.url),
               !SupabaseConfig.anonKey.isEmpty,
               SupabaseConfig.anonKey != "YOUR_SUPABASE_ANON_KEY" else {
-            AppLogger.log("⚠️ Supabase not configured. Please update SupabaseConfig.swift", 
+            print("❌ Supabase not configured properly")
+            AppLogger.log("⚠️ Supabase not configured. Please update SupabaseConfig.swift",
                          category: AppLogger.network,
                          type: .error)
             return
         }
-        
-        client = SupabaseClient(
-            supabaseURL: url,
-            supabaseKey: SupabaseConfig.anonKey
-        )
-        
-        AppLogger.log("✅ Supabase client initialized", category: AppLogger.network)
+
+        print("🔵 SupabaseService: Config valid, creating SupabaseClient...")
+        do {
+            client = SupabaseClient(
+                supabaseURL: url,
+                supabaseKey: SupabaseConfig.anonKey
+            )
+            print("✅ Supabase client created successfully")
+            AppLogger.log("✅ Supabase client initialized", category: AppLogger.network)
+        } catch {
+            print("❌ SupabaseClient creation failed: \(error)")
+            AppLogger.log("❌ SupabaseClient creation failed: \(error.localizedDescription)",
+                         category: AppLogger.network,
+                         type: .error)
+        }
     }
     
     // MARK: - Authentication
@@ -40,6 +68,7 @@ class SupabaseService {
     // 3. Email OTP (Passwordless)
 
     func signOut() async throws {
+        ensureClientInitialized()
         guard let client = client else {
             throw SupabaseServiceError.clientNotConfigured
         }
@@ -48,10 +77,41 @@ class SupabaseService {
     }
     
     func getCurrentUser() async throws -> Supabase.User? {
-        guard let client = client else {
+        print("🔵 SupabaseService.getCurrentUser() called")
+
+        do {
+            ensureClientInitialized()
+            print("🔵 getCurrentUser: Client initialized")
+        } catch {
+            print("❌ getCurrentUser: Client initialization failed - \(error)")
             throw SupabaseServiceError.clientNotConfigured
         }
-        return try? await client.auth.session.user
+
+        guard let client = client else {
+            print("⚠️ getCurrentUser: Client is nil after initialization")
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        print("🔵 getCurrentUser: Fetching session...")
+        // Use proper async API instead of potentially synchronous .session property
+        do {
+            print("🔵 getCurrentUser: About to call client.auth.session...")
+            let session = try await client.auth.session
+            print("✅ getCurrentUser: Got session, user = \(session.user.email ?? "unknown")")
+            return session.user
+        } catch let error as NSError {
+            print("⚠️ getCurrentUser: Session fetch error")
+            print("   Domain: \(error.domain)")
+            print("   Code: \(error.code)")
+            print("   Description: \(error.localizedDescription)")
+            print("   User Info: \(error.userInfo)")
+            // Don't throw - return nil for "no session" case
+            return nil
+        } catch {
+            print("⚠️ getCurrentUser: Unknown error type - \(type(of: error))")
+            print("   Error: \(error)")
+            return nil
+        }
     }
 
     // MARK: - Passwordless Authentication (OTP)
@@ -144,13 +204,22 @@ class SupabaseService {
     }
 
     /// Checks if user has completed onboarding
-    func hasCompletedOnboarding() async throws -> Bool {
-        guard let user = try await getCurrentUser() else {
+    /// - Parameter user: Optional user to check. If nil, fetches current user.
+    func hasCompletedOnboarding(user: Supabase.User? = nil) async throws -> Bool {
+        // Use provided user or fetch current user
+        let userToCheck: Supabase.User?
+        if let user = user {
+            userToCheck = user
+        } else {
+            userToCheck = try await getCurrentUser()
+        }
+
+        guard let userToCheck = userToCheck else {
             return false
         }
 
         // Check for onboarding_completed flag in user metadata
-        if case .bool(let completed) = user.userMetadata["onboarding_completed"] {
+        if case .bool(let completed) = userToCheck.userMetadata["onboarding_completed"] {
             return completed
         }
 

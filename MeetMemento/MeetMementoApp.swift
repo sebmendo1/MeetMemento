@@ -10,7 +10,11 @@ import SwiftUI
 @main
 struct MeetMementoApp: App {
     @StateObject private var authViewModel = AuthViewModel()
-    
+
+    init() {
+        print("🔴 MeetMementoApp init() called")
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -18,6 +22,9 @@ struct MeetMementoApp: App {
                     // Fully onboarded user - show main app
                     ContentView()
                         .environmentObject(authViewModel)
+                        .onAppear {
+                            print("🔴 ContentView appeared")
+                        }
                 } else {
                     // Not authenticated OR incomplete onboarding - show WelcomeView
                     // WelcomeView will handle routing to correct step (Phase 2)
@@ -25,15 +32,19 @@ struct MeetMementoApp: App {
                         .useTheme()
                         .useTypography()
                         .environmentObject(authViewModel)
+                        .onAppear {
+                            print("🔴 WelcomeView appeared")
+                            print("🔴 Auth state: isAuthenticated=\(authViewModel.isAuthenticated), hasCompletedOnboarding=\(authViewModel.hasCompletedOnboarding)")
+                        }
                 }
             }
             .task {
+                print("🔴 .task block started")
                 // Initialize auth AFTER UI renders to prevent SIGKILL crashes
+                // Note: checkAuthState() already checks onboarding status atomically,
+                // no need for separate checkOnboardingStatus() call
                 await authViewModel.initializeAuth()
-
-                // Check onboarding status AFTER auth, with delay to ensure UI renders
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second delay
-                await authViewModel.checkOnboardingStatus()
+                print("🔴 .task block completed")
             }
             .onOpenURL { url in
                 Task { try? await AuthService.shared.handleRedirectURL(url) }

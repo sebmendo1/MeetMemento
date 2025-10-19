@@ -175,8 +175,9 @@ class OnboardingViewModel: ObservableObject {
             let userMetadata = user.userMetadata
 
             // Check if profile data exists (first_name and last_name)
-            if let firstName = userMetadata["first_name"] as? String,
-               let lastName = userMetadata["last_name"] as? String,
+            // Use pattern matching for AnyJSON type
+            if case .string(let firstName) = userMetadata["first_name"],
+               case .string(let lastName) = userMetadata["last_name"],
                !firstName.isEmpty, !lastName.isEmpty {
                 self.hasProfile = true
                 self.firstName = firstName
@@ -186,7 +187,8 @@ class OnboardingViewModel: ObservableObject {
             }
 
             // Check if personalization text exists (key is user_personalization_node in Supabase)
-            if let personalization = userMetadata["user_personalization_node"] as? String,
+            // Use pattern matching for AnyJSON type
+            if case .string(let personalization) = userMetadata["user_personalization_node"],
                !personalization.isEmpty {
                 self.hasPersonalization = true
                 self.personalizationText = personalization
@@ -194,12 +196,14 @@ class OnboardingViewModel: ObservableObject {
                              category: AppLogger.general)
             }
 
-            // Check if themes exist
-            if let themes = userMetadata["selected_themes"] as? [String],
-               !themes.isEmpty {
+            // Check if themes exist (stored as comma-separated string)
+            // Use pattern matching for AnyJSON type
+            if case .string(let themesString) = userMetadata["selected_themes"],
+               !themesString.isEmpty {
+                let themesArray = themesString.split(separator: ",").map { String($0) }
                 self.hasThemes = true
-                self.selectedThemes = Set(themes)
-                AppLogger.log("✅ Found existing themes: \(themes.joined(separator: ", "))",
+                self.selectedThemes = Set(themesArray)
+                AppLogger.log("✅ Found existing themes: \(themesArray.joined(separator: ", "))",
                              category: AppLogger.general)
             }
 

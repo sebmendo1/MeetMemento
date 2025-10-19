@@ -162,12 +162,12 @@ public struct ProfileSettingsView: View {
     private func loadCurrentProfile() {
         guard let user = authViewModel.currentUser else { return }
 
-        // Pre-fill with current user data
-        if let firstNameValue = user.userMetadata["first_name"] as? String {
+        // Pre-fill with current user data using pattern matching for AnyJSON
+        if case .string(let firstNameValue) = user.userMetadata["first_name"] {
             firstName = firstNameValue
         }
 
-        if let lastNameValue = user.userMetadata["last_name"] as? String {
+        if case .string(let lastNameValue) = user.userMetadata["last_name"] {
             lastName = lastNameValue
         }
     }

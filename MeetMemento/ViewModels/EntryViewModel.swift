@@ -14,9 +14,12 @@ class EntryViewModel: ObservableObject {
     @Published var entries: [Entry] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
-    @Published var completedFollowUpQuestions: [String] = [] // Tracks which questions have been answered
+    @Published var completedFollowUpQuestions: [String] = [] // Tracks which questions have been answered (legacy)
 
     private let supabaseService = SupabaseService.shared
+
+    // Reference to GeneratedQuestionsViewModel for database completion tracking
+    var questionsViewModel: GeneratedQuestionsViewModel?
    private var hasLoadedOnce = false
    private var isLoadingInProgress = false // Prevent concurrent load operations
     
@@ -64,19 +67,24 @@ class EntryViewModel: ObservableObject {
             print("🔄 Load already in progress, skipping duplicate request")
             return
         }
-        
+
         isLoadingInProgress = true
         isLoading = true
         errorMessage = nil
-        
+
         print("🔄 Starting to load entries from Supabase...")
-        
+
         do {
-            // Check authentication first
-            let currentUser = try await SupabaseService.shared.getCurrentUser()
+            // Check authentication first with timeout to prevent hanging (1s for local check)
+            let currentUser = try await withTimeout(seconds: 1) {
+                try await SupabaseService.shared.getCurrentUser()
+            }
             print("✅ User authenticated: \(currentUser?.email ?? "Unknown")")
-            
-            entries = try await supabaseService.fetchEntries()
+
+            // Fetch entries with timeout (2s for network operation)
+            entries = try await withTimeout(seconds: 2) {
+                try await self.supabaseService.fetchEntries()
+            }
             print("✅ Loaded \(entries.count) entries from Supabase")
         } catch {
             // Handle different types of errors appropriately
@@ -153,8 +161,13 @@ class EntryViewModel: ObservableObject {
         }
     }
     
-    /// Creates a new follow-up entry and saves it to Supabase with optimistic UI.
-    func createFollowUpEntry(title: String, text: String, question: String) {
+    /// Creates a new follow-up entry and marks the question as completed in database
+    func createFollowUpEntry(
+        title: String,
+        text: String,
+        questionId: UUID? = nil,  // NEW: Optional question ID for database tracking
+        question: String
+    ) {
         // Create optimistic entry for instant UI feedback
         let optimisticEntry = Entry(
             title: title.isEmpty ? "Untitled" : title,
@@ -180,10 +193,49 @@ class EntryViewModel: ObservableObject {
                     entries[index] = followUpEntry
                 }
 
-                // Mark question as completed
-                if !completedFollowUpQuestions.contains(question) {
-                    completedFollowUpQuestions.append(question)
-                    print("✅ Marked follow-up question as completed: \(question)")
+                // Mark question as completed (DATABASE or LEGACY)
+                if let qId = questionId {
+                    // NEW: Database completion tracking
+                    print("🔄 Starting completion tracking for question: \(qId)")
+
+                    // Try to mark as completed in database
+                    do {
+                        print("   📤 Calling completeFollowUpQuestion RPC...")
+                        try await supabaseService.completeFollowUpQuestion(
+                            questionId: qId,
+                            entryId: savedEntry.id
+                        )
+                        print("   ✅ RPC completed successfully")
+                    } catch {
+                        print("❌ Failed to mark question as completed: \(error.localizedDescription)")
+                        print("   Error details: \(error)")
+                        // Continue anyway - we still want to refresh the UI
+                    }
+
+                    // ALWAYS refresh questions after completion attempt (with delay for DB propagation)
+                    // This ensures UI updates even if RPC had issues
+                    do {
+                        // Small delay to ensure database update has propagated
+                        try await Task.sleep(nanoseconds: 300_000_000) // 300ms
+
+                        print("   🔄 Fetching updated questions...")
+                        if let viewModel = questionsViewModel {
+                            await viewModel.fetchQuestions()
+                            print("   ✅ Questions refreshed - UI should update")
+                        } else {
+                            print("   ⚠️ questionsViewModel is nil - cannot refresh")
+                        }
+                    } catch {
+                        print("⚠️ Sleep or fetch interrupted: \(error.localizedDescription)")
+                    }
+
+                    print("✅ Marked database question as completed: \(question)")
+                } else {
+                    // Legacy: in-memory completion for hardcoded questions
+                    if !completedFollowUpQuestions.contains(question) {
+                        completedFollowUpQuestions.append(question)
+                        print("✅ Marked legacy question as completed: \(question)")
+                    }
                 }
 
                 print("✅ Saved follow-up entry to Supabase: \(savedEntry.id)")
@@ -243,10 +295,38 @@ class EntryViewModel: ObservableObject {
     }
     
     // MARK: - Mock Data (for testing/previews only)
-    
+
     /// Loads mock entries for testing and previews (doesn't affect Supabase).
     func loadMockEntries() {
         entries = Entry.sampleEntries
+    }
+
+    // MARK: - Timeout Helper
+
+    private func withTimeout<T>(
+        seconds: TimeInterval,
+        operation: @escaping () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw TimeoutError()
+            }
+
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
+
+    private struct TimeoutError: Error {
+        var localizedDescription: String {
+            "Operation timed out"
+        }
     }
 }
 

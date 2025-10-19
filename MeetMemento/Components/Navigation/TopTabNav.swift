@@ -88,9 +88,10 @@ public struct TopNav: View {
         Button {
             guard !isSelected else { return }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.85, blendDuration: 0.12)) {
-                selection = tab
-            }
+            // ✅ Update selection WITHOUT animation wrapper
+            // This allows TabView to handle page transitions properly
+            // The pill animation is handled by .animation() modifier on the view (line 73)
+            selection = tab
         } label: {
             Text(tab.title)
                 .font(type.bodyBold)

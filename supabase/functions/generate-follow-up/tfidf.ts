@@ -1,30 +1,127 @@
 // tfidf.ts
-// TF-IDF implementation for analyzing journal entries
+// IMPROVED TF-IDF implementation with stemming, better stop words, and smoothing
 
 /**
- * Tokenize text: convert to lowercase, remove punctuation, split into words
+ * Simple stemmer - removes common English suffixes
+ * Not as sophisticated as Porter Stemmer but covers 80% of cases
+ */
+export function stem(word: string): string {
+  // Remove common suffixes in order of specificity
+  if (word.endsWith('ies') && word.length > 5) {
+    return word.slice(0, -3) + 'y';  // worries → worry
+  }
+  if (word.endsWith('ing') && word.length > 6) {
+    return word.slice(0, -3);  // working → work
+  }
+  if (word.endsWith('ed') && word.length > 5) {
+    return word.slice(0, -2);  // worked → work
+  }
+  if (word.endsWith('ful') && word.length > 6) {
+    return word.slice(0, -3);  // stressful → stress
+  }
+  if (word.endsWith('ness') && word.length > 7) {
+    return word.slice(0, -4);  // happiness → happi
+  }
+  if (word.endsWith('ly') && word.length > 5) {
+    return word.slice(0, -2);  // quickly → quick
+  }
+  if (word.endsWith('ous') && word.length > 6) {
+    return word.slice(0, -3);  // anxious → anxi
+  }
+  if (word.endsWith('ive') && word.length > 6) {
+    return word.slice(0, -3);  // creative → creat
+  }
+  if (word.endsWith('er') && word.length > 5) {
+    return word.slice(0, -2);  // worker → work
+  }
+  if (word.endsWith('est') && word.length > 6) {
+    return word.slice(0, -3);  // hardest → hard
+  }
+  if (word.endsWith('s') && word.length > 4) {
+    return word.slice(0, -1);  // deadlines → deadline
+  }
+  return word;
+}
+
+/**
+ * Tokenize text: convert to lowercase, remove punctuation, split into words, and stem
  */
 export function tokenize(text: string): string[] {
   return text
     .toLowerCase()
     .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
     .split(/\s+/) // Split on whitespace
-    .filter(word => word.length > 2); // Remove very short words
+    .filter(word => word.length > 2) // Remove very short words
+    .map(word => stem(word)); // Apply stemming
 }
 
 /**
- * Common English stop words that don't carry meaning
+ * EXPANDED stop words list - includes common journal-specific words
  */
 const STOP_WORDS = new Set([
-  'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-  'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'been', 'be',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-  'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those',
-  'i', 'you', 'he', 'she', 'it', 'we', 'they', 'my', 'your', 'his',
-  'her', 'its', 'our', 'their', 'me', 'him', 'them', 'us', 'am',
-  'what', 'when', 'where', 'who', 'which', 'how', 'all', 'each',
-  'every', 'some', 'any', 'few', 'more', 'most', 'other', 'such',
-  'no', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very'
+  // Articles & conjunctions
+  'the', 'a', 'an', 'and', 'or', 'but', 'if', 'because', 'as', 'until',
+  'while', 'although', 'though', 'nor', 'yet',
+
+  // Prepositions
+  'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'about',
+  'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between',
+  'under', 'over', 'out', 'off', 'down', 'near', 'across', 'behind',
+
+  // Be verbs
+  'is', 'am', 'are', 'was', 'were', 'been', 'be', 'being',
+
+  // Have verbs
+  'have', 'has', 'had', 'having',
+
+  // Do verbs
+  'do', 'does', 'did', 'doing', 'done',
+
+  // Modal verbs
+  'will', 'would', 'could', 'should', 'may', 'might', 'can', 'must', 'shall',
+
+  // Pronouns
+  'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'them', 'us',
+  'my', 'your', 'his', 'its', 'our', 'their', 'mine', 'yours', 'hers', 'ours',
+  'theirs', 'myself', 'yourself', 'himself', 'herself', 'itself', 'ourselves',
+  'yourselves', 'themselves',
+
+  // Demonstratives
+  'this', 'that', 'these', 'those',
+
+  // Quantifiers
+  'all', 'each', 'every', 'some', 'any', 'few', 'many', 'much', 'more', 'most',
+  'several', 'no', 'none', 'both', 'either', 'neither',
+
+  // Wh-words
+  'what', 'when', 'where', 'who', 'whom', 'whose', 'which', 'why', 'how',
+
+  // Adverbs (common fillers)
+  'not', 'only', 'just', 'very', 'too', 'also', 'so', 'than', 'such', 'really',
+  'quite', 'rather', 'even', 'still', 'already', 'yet', 'never', 'always',
+  'often', 'sometimes', 'usually', 'generally', 'especially', 'particularly',
+
+  // Time words (journal-specific)
+  'today', 'yesterday', 'tomorrow', 'now', 'then', 'ago', 'later', 'soon',
+  'day', 'week', 'month', 'year', 'morning', 'afternoon', 'evening', 'night',
+
+  // Common verbs (journal-specific)
+  'feel', 'felt', 'seem', 'seemed', 'look', 'looked', 'got', 'get',
+  'went', 'go', 'made', 'make', 'said', 'say', 'told', 'tell',
+  'came', 'come', 'became', 'become', 'took', 'take', 'gave', 'give',
+  'found', 'find', 'thought', 'think', 'knew', 'know', 'saw', 'see',
+
+  // Other common words
+  'own', 'same', 'other', 'another', 'such', 'thing', 'things',
+  'way', 'ways', 'place', 'places', 'time', 'times', 'back',
+  'new', 'first', 'last', 'long', 'good', 'great', 'little', 'old',
+  'right', 'big', 'high', 'different', 'small', 'large', 'next', 'early',
+  'young', 'important', 'few', 'public', 'bad', 'same', 'able',
+
+  // Extra fillers
+  'kind', 'sort', 'type', 'lot', 'lots', 'bit', 'piece',
+  'something', 'anything', 'nothing', 'everything', 'someone', 'anyone',
+  'everyone', 'nobody', 'somebody', 'anybody', 'everybody'
 ]);
 
 /**
@@ -59,7 +156,8 @@ export function computeTF(tokens: string[]): Map<string, number> {
 
 /**
  * Compute Inverse Document Frequency (IDF) across all documents
- * IDF = log(total_documents / documents_containing_word)
+ * IDF = log((total_documents + 1) / (documents_containing_word + 1))
+ * Note: Uses add-one smoothing to prevent division issues
  */
 export function computeIDF(documents: string[][]): Map<string, number> {
   const idf = new Map<string, number>();
@@ -76,9 +174,10 @@ export function computeIDF(documents: string[][]): Map<string, number> {
     }
   }
 
-  // Compute IDF for each word
+  // Compute IDF for each word with smoothing
   for (const [word, docCount] of wordDocCount.entries()) {
-    idf.set(word, Math.log(totalDocs / docCount));
+    // Add-one smoothing to prevent log(0) and handle rare terms better
+    idf.set(word, Math.log((totalDocs + 1) / (docCount + 1)));
   }
 
   return idf;

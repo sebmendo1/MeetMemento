@@ -128,10 +128,12 @@ const userVector = computeTFIDF(userTokens, docIDF);
 console.log('User entries combined length:', combinedText.length, 'characters');
 console.log('Unique tokens:', userTokens.length);
 
-// Pre-compute question vectors
+// Pre-compute question vectors (with unified IDF)
 console.log('\nPre-computing question vectors...');
-const precomputedQuestions = precomputeQuestionVectors();
+const userDocuments = sampleEntries.map(e => removeStopWords(tokenize(e.text)));
+const { questions: precomputedQuestions, idf: unifiedIDF } = precomputeQuestionVectors(userDocuments);
 console.log(`✅ Pre-computed ${precomputedQuestions.length} question vectors`);
+console.log(`📐 Unified IDF vocabulary: ${unifiedIDF.size} unique terms`);
 
 // Compute similarity scores
 console.log('\nComputing similarity scores...');
