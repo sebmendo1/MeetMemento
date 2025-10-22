@@ -19,5 +19,9 @@
 		<key>UILaunchScreen</key>
 		<dict/>
 	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MeetMemento needs microphone access to transcribe your voice into journal entries.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>MeetMemento uses speech recognition to convert your spoken words into text for journaling.</string>
 </dict>
 </plist>

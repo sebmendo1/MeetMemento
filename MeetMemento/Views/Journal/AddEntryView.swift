@@ -6,16 +6,20 @@
 //
 
 import SwiftUI
+import Speech
 
 public struct AddEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
-    
+
     @State private var title: String
     @State private var text: String
     @State private var isSaving = false
-    
+
+    @State private var speechService = SpeechRecognitionService()
+    @State private var showPermissionAlert = false
+
     @FocusState private var focusedField: Field?
     
     enum Field: Hashable {
@@ -57,9 +61,27 @@ public struct AddEntryView: View {
         .background(theme.background.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                voiceButton
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 saveButton
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if speechService.isRecording {
+                recordingBanner
+            }
+        }
+        .alert("Microphone Permission Required", isPresented: $showPermissionAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Open Settings") {
+                if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(settingsUrl)
+                }
+            }
+        } message: {
+            Text("Please enable microphone and speech recognition access in Settings to use voice-to-text.")
         }
         .onAppear {
             setupInitialFocus()
@@ -125,7 +147,63 @@ public struct AddEntryView: View {
         }
         .disabled(isSaving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
-    
+
+    private var voiceButton: some View {
+        Button {
+            handleVoiceButtonTap()
+        } label: {
+            Image(systemName: speechService.isRecording ? "mic.fill" : "mic")
+                .foregroundStyle(speechService.isRecording ? .red : theme.foreground)
+                .symbolEffect(.pulse, options: .repeating, isActive: speechService.isRecording)
+        }
+    }
+
+    private var recordingBanner: some View {
+        HStack(spacing: 12) {
+            // Pulsing red dot
+            Circle()
+                .fill(.red)
+                .frame(width: 8, height: 8)
+                .opacity(speechService.isRecording ? 1 : 0.3)
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: speechService.isRecording)
+
+            Text("Recording...")
+                .font(.subheadline)
+                .foregroundStyle(theme.foreground)
+
+            Spacer()
+
+            // Live transcription preview (if available)
+            if !speechService.transcription.isEmpty {
+                Text(speechService.transcription)
+                    .font(.caption)
+                    .foregroundStyle(theme.mutedForeground)
+                    .lineLimit(1)
+                    .frame(maxWidth: 150, alignment: .trailing)
+            }
+
+            // Stop button
+            Button {
+                stopRecordingAndAppendText()
+            } label: {
+                Text("Done")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(PrimaryScale.primary600)
+                    .cornerRadius(8)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+        .cornerRadius(12)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
     // MARK: - Actions
     
     private func setupInitialFocus() {
@@ -136,15 +214,69 @@ public struct AddEntryView: View {
     private func save() {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         guard !trimmedText.isEmpty else { return }
-        
+
         isSaving = true
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        
+
         // Save immediately for instant feedback
         onSave(trimmedTitle, trimmedText)
         isSaving = false
+    }
+
+    private func handleVoiceButtonTap() {
+        if speechService.isRecording {
+            // Stop recording
+            stopRecordingAndAppendText()
+        } else {
+            // Start recording
+            Task {
+                await startRecording()
+            }
+        }
+    }
+
+    private func startRecording() async {
+        // Request authorization if needed
+        if speechService.authorizationStatus != .authorized {
+            let authorized = await speechService.requestAuthorization()
+            if !authorized {
+                showPermissionAlert = true
+                return
+            }
+        }
+
+        // Start recording
+        do {
+            try speechService.startRecording()
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        } catch {
+            print("Failed to start recording: \(error)")
+            showPermissionAlert = true
+        }
+    }
+
+    private func stopRecordingAndAppendText() {
+        // Stop recording
+        speechService.stopRecording()
+
+        // Append transcribed text to the text field
+        if !speechService.transcription.isEmpty {
+            // Add spacing if text already exists
+            if !text.isEmpty && !text.hasSuffix("\n\n") {
+                text += "\n\n"
+            }
+
+            // Append the transcription
+            text += speechService.transcription
+
+            // Reset transcription
+            speechService.resetTranscription()
+
+            // Haptic feedback
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
     }
 }
 
