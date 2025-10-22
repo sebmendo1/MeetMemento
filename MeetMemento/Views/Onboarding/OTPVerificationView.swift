@@ -21,6 +21,7 @@ public struct OTPVerificationView: View {
     // State variables
     @State private var otpCode: String = ""
     @State private var isVerifying: Bool = false
+    @State private var showThinkingLoader: Bool = false
     @State private var errorMessage: String = ""
     @State private var resendMessage: String = ""
     @FocusState private var isCodeFieldFocused: Bool
@@ -32,6 +33,7 @@ public struct OTPVerificationView: View {
     
     public var body: some View {
         ZStack {
+            // Main content (hidden when thinking)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Spacer(minLength: 16)
@@ -131,6 +133,26 @@ public struct OTPVerificationView: View {
                     .disabled(isVerifying || otpCode.count != 6)
                 }
             }
+            .opacity(showThinkingLoader ? 0 : 1)
+
+            // Thinking loader overlay
+            if showThinkingLoader {
+                ZStack {
+                    theme.background.ignoresSafeArea()
+
+                    VStack(spacing: 20) {
+                        // Animated progress indicator
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(theme.primary)
+
+                        Text("Thinking...")
+                            .font(type.body)
+                            .foregroundStyle(theme.foreground)
+                    }
+                }
+                .transition(.opacity)
+            }
         }
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -170,8 +192,15 @@ public struct OTPVerificationView: View {
                     isVerifying = false
 
                     if authViewModel.isAuthenticated {
-                        // Authentication successful - dismiss
-                        dismiss()
+                        // Show thinking loader
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showThinkingLoader = true
+                        }
+
+                        NSLog("✅ OTP verified, showing thinking loader")
+
+                        // Dismissal will be handled by CreateAccountBottomSheet
+                        // Keep loader visible during transition
                     }
                 }
             } catch {

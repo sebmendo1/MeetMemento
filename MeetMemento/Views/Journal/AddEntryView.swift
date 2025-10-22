@@ -7,6 +7,14 @@
 
 import SwiftUI
 
+// MARK: - Entry State
+
+public enum EntryState: Hashable {
+    case create           // Regular journal entry
+    case edit(Entry)      // Editing existing entry
+    case followUp(questionText: String, questionId: UUID?)  // Answering follow-up question
+}
+
 public struct AddEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
@@ -15,28 +23,58 @@ public struct AddEntryView: View {
     @State private var title: String
     @State private var text: String
     @State private var isSaving = false
-    
+
     @FocusState private var focusedField: Field?
-    
+
     enum Field: Hashable {
         case title
         case body
     }
-    
-    let entry: Entry? // nil for create, populated for edit
-    let followUpQuestion: String? // For follow-up entries
-    let onSave: (_ title: String, _ text: String) -> Void
-    
+
+    let state: EntryState
+    let onSave: (_ title: String, _ text: String, _ questionId: UUID?) -> Void
+
     public init(
-        entry: Entry? = nil,
-        followUpQuestion: String? = nil,
-        onSave: @escaping (_ title: String, _ text: String) -> Void
+        state: EntryState,
+        onSave: @escaping (_ title: String, _ text: String, _ questionId: UUID?) -> Void
     ) {
-        self.entry = entry
-        self.followUpQuestion = followUpQuestion
+        self.state = state
         self.onSave = onSave
-        _title = State(initialValue: entry?.title ?? followUpQuestion ?? "")
-        _text = State(initialValue: entry?.text ?? "")
+
+        // Initialize title and text based on state
+        switch state {
+        case .create:
+            _title = State(initialValue: "")
+            _text = State(initialValue: "")
+        case .edit(let entry):
+            _title = State(initialValue: entry.title)
+            _text = State(initialValue: entry.text)
+        case .followUp(let questionText, _):
+            _title = State(initialValue: questionText)
+            _text = State(initialValue: "")
+        }
+    }
+
+    // MARK: - Computed Properties
+
+    private var isFollowUpEntry: Bool {
+        if case .followUp = state { return true }
+        return false
+    }
+
+    private var followUpQuestionText: String? {
+        if case .followUp(let text, _) = state { return text }
+        return nil
+    }
+
+    private var editingEntry: Entry? {
+        if case .edit(let entry) = state { return entry }
+        return nil
+    }
+
+    private var questionId: UUID? {
+        if case .followUp(_, let id) = state { return id }
+        return nil
     }
     
     public var body: some View {
@@ -62,32 +100,45 @@ public struct AddEntryView: View {
             }
         }
         .onAppear {
+            print("🟢🟢🟢 ADDENTRYVIEW APPEARED! 🟢🟢🟢")
+            print("   State: \(state)")
+            if case .followUp(let q, let id) = state {
+                print("   Question: \(q)")
+                print("   QuestionId: \(id?.uuidString ?? "NIL")")
+            }
             setupInitialFocus()
         }
     }
     
     // MARK: - Subviews
-    
+
     private var titleField: some View {
-        TextField("", text: $title, axis: .vertical)
-            .font(.system(size: 32, weight: .bold))
-            .foregroundStyle(isFollowUpEntry ? PrimaryScale.primary600 : theme.foreground)
-            .focused($focusedField, equals: .title)
-            .textInputAutocapitalization(.words)
-            .submitLabel(.next)
-            .onSubmit {
-                focusedField = .body
-            }
-            .placeholder(when: title.isEmpty) {
-                Text("Add a title...")
+        Group {
+            if isFollowUpEntry {
+                // NON-EDITABLE follow-up question in Recoleta font
+                Text(title)
+                    .font(.custom("Recoleta-Black", size: 28))
+                    .foregroundStyle(PrimaryScale.primary600)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            } else {
+                // EDITABLE title field for regular entries
+                TextField("", text: $title, axis: .vertical)
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(theme.mutedForeground.opacity(0.4))
+                    .foregroundStyle(theme.foreground)
+                    .focused($focusedField, equals: .title)
+                    .textInputAutocapitalization(.words)
+                    .submitLabel(.next)
+                    .onSubmit {
+                        focusedField = .body
+                    }
+                    .placeholder(when: title.isEmpty) {
+                        Text("Add a title...")
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(theme.mutedForeground.opacity(0.4))
+                    }
             }
-    }
-    
-    /// Determines if this is a follow-up entry based on the follow-up question
-    private var isFollowUpEntry: Bool {
-        followUpQuestion != nil
+        }
     }
     
     private var bodyField: some View {
@@ -113,6 +164,10 @@ public struct AddEntryView: View {
     
     private var saveButton: some View {
         Button {
+            print("🟡🟡🟡 SAVE BUTTON TAPPED! 🟡🟡🟡")
+            print("   Text length: \(text.count)")
+            print("   Trimmed length: \(text.trimmingCharacters(in: .whitespacesAndNewlines).count)")
+            print("   Button disabled: \(isSaving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)")
             save()
         } label: {
             if isSaving {
@@ -127,23 +182,37 @@ public struct AddEntryView: View {
     }
     
     // MARK: - Actions
-    
+
     private func setupInitialFocus() {
         // Focus immediately for instant writing experience
-        focusedField = title.isEmpty ? .title : .body
+        if isFollowUpEntry {
+            // For follow-ups, always focus body (question is non-editable)
+            focusedField = .body
+        } else {
+            // For regular entries, focus title if empty
+            focusedField = title.isEmpty ? .title : .body
+        }
     }
-    
+
     private func save() {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         guard !trimmedText.isEmpty else { return }
-        
+
         isSaving = true
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        
-        // Save immediately for instant feedback
-        onSave(trimmedTitle, trimmedText)
+
+        // Debug logging
+        print("💾 SAVE BUTTON PRESSED")
+        print("   - State: \(state)")
+        print("   - QuestionId: \(questionId?.uuidString ?? "nil")")
+        print("   - Title: \(trimmedTitle)")
+
+        // Pass questionId to save callback
+        onSave(trimmedTitle, trimmedText, questionId)
+
+        print("✅ SAVE CALLBACK COMPLETED")
         isSaving = false
     }
 }
@@ -152,7 +221,7 @@ public struct AddEntryView: View {
 
 #Preview("Create Entry") {
     NavigationStack {
-        AddEntryView(entry: nil) { title, text in
+        AddEntryView(state: .create) { title, text, questionId in
             print("Created: \(title) - \(text)")
         }
     }
@@ -162,8 +231,21 @@ public struct AddEntryView: View {
 
 #Preview("Edit Entry") {
     NavigationStack {
-        AddEntryView(entry: Entry.sampleEntries[0]) { title, text in
+        AddEntryView(state: .edit(Entry.sampleEntries[0])) { title, text, questionId in
             print("Updated: \(title) - \(text)")
+        }
+    }
+    .useTheme()
+    .useTypography()
+}
+
+#Preview("Follow-Up Question") {
+    NavigationStack {
+        AddEntryView(state: .followUp(
+            questionText: "What strategies help you manage stress effectively?",
+            questionId: UUID()
+        )) { title, text, questionId in
+            print("Answered follow-up: \(questionId?.uuidString ?? "nil")")
         }
     }
     .useTheme()
@@ -172,7 +254,7 @@ public struct AddEntryView: View {
 
 #Preview("Create Entry • Dark") {
     NavigationStack {
-        AddEntryView(entry: nil) { title, text in
+        AddEntryView(state: .create) { title, text, questionId in
             print("Created: \(title) - \(text)")
         }
     }

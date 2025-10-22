@@ -11,7 +11,6 @@ import SwiftUI
 
 enum OnboardingRoute: Hashable {
     case learnAboutYourself
-    case themesIdentified
     case loading
 }
 
@@ -49,14 +48,6 @@ public struct OnboardingCoordinatorView: View {
                     }
                     .environmentObject(authViewModel)
 
-                case .themesIdentified:
-                    ThemesIdentifiedView(
-                        themes: onboardingViewModel.generateThemes()
-                    ) { selectedThemes in
-                        handleThemesComplete(selectedThemes)
-                    }
-                    .environmentObject(authViewModel)
-
                 case .loading:
                     LoadingStateView {
                         handleOnboardingComplete()
@@ -71,12 +62,15 @@ public struct OnboardingCoordinatorView: View {
         .task {
             // Load current state on appear to determine resume point
             if !hasLoadedState {
-                // Start minimum display time enforcement immediately
+                NSLog("🔵 OnboardingCoordinatorView: Starting to load state")
+
+                // Start minimum display time enforcement
                 let minimumLoadTask = Task {
-                    // Enforce minimum 1.2 second loading display for smooth transition from OTP
-                    try? await Task.sleep(nanoseconds: 1_200_000_000) // 1.2 seconds
+                    // Reduced to 0.5 seconds for faster UX (still shows loader briefly)
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
                     await MainActor.run {
                         hasMetMinimumLoadTime = true
+                        NSLog("✅ Minimum onboarding load time met")
                         AppLogger.log("✅ Minimum onboarding load time met", category: AppLogger.general)
                     }
                 }
@@ -84,10 +78,12 @@ public struct OnboardingCoordinatorView: View {
                 // Load state concurrently
                 await onboardingViewModel.loadCurrentState()
                 hasLoadedState = true
+                NSLog("✅ Onboarding state loaded")
 
                 // Wait for minimum time if not already met
                 await minimumLoadTask.value
 
+                NSLog("✅ OnboardingCoordinatorView: Ready to show initial view")
                 AppLogger.log("✅ Onboarding state loaded and ready to show", category: AppLogger.general)
             }
         }
@@ -109,14 +105,6 @@ public struct OnboardingCoordinatorView: View {
             // Skip to personalization
             LearnAboutYourselfView { userInput in
                 handlePersonalizationComplete(userInput)
-            }
-            .environmentObject(authViewModel)
-        } else if onboardingViewModel.shouldStartAtThemes {
-            // Skip to themes
-            ThemesIdentifiedView(
-                themes: onboardingViewModel.generateThemes()
-            ) { selectedThemes in
-                handleThemesComplete(selectedThemes)
             }
             .environmentObject(authViewModel)
         } else {
@@ -146,63 +134,32 @@ public struct OnboardingCoordinatorView: View {
         navigationPath.append(OnboardingRoute.learnAboutYourself)
     }
 
-    /// Handle personalization completion (Step 2)
+    /// Handle personalization completion (Step 2) - Create first journal entry
     private func handlePersonalizationComplete(_ userInput: String) {
-        // Store personalization text
+        // Store text for reference
         onboardingViewModel.personalizationText = userInput
 
-        // Save to Supabase
         Task {
             do {
-                try await onboardingViewModel.savePersonalization()
+                // Create first journal entry
+                try await onboardingViewModel.createFirstJournalEntry(text: userInput)
 
-                // Mark as completed in view model for resume logic
                 await MainActor.run {
                     onboardingViewModel.hasPersonalization = true
-                }
-
-                // Navigate to themes
-                await MainActor.run {
-                    navigationPath.append(OnboardingRoute.themesIdentified)
-                }
-            } catch {
-                // Handle error - could show alert
-                AppLogger.log("Error saving personalization: \(error.localizedDescription)",
-                             category: AppLogger.general,
-                             type: .error)
-            }
-        }
-    }
-
-    /// Handle themes selection completion (Step 3)
-    private func handleThemesComplete(_ selectedThemes: [String]) {
-        // Store selected themes
-        onboardingViewModel.selectedThemes = Set(selectedThemes)
-
-        // Save to Supabase and navigate to loading
-        Task {
-            do {
-                try await onboardingViewModel.saveThemes()
-
-                // Mark as completed in view model for resume logic
-                await MainActor.run {
-                    onboardingViewModel.hasThemes = true
-                }
-
-                // Navigate to loading state
-                await MainActor.run {
                     navigationPath.append(OnboardingRoute.loading)
                 }
             } catch {
-                // Handle error
-                AppLogger.log("Error saving themes: \(error.localizedDescription)",
+                await MainActor.run {
+                    onboardingViewModel.errorMessage = error.localizedDescription
+                }
+                AppLogger.log("❌ Failed to create first entry: \(error.localizedDescription)",
                              category: AppLogger.general,
                              type: .error)
             }
         }
     }
 
-    /// Handle onboarding completion (Step 4)
+    /// Handle onboarding completion (Step 3)
     private func handleOnboardingComplete() {
         // Mark onboarding as complete in Supabase
         Task {

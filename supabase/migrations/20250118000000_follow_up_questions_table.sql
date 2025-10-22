@@ -33,19 +33,24 @@ CREATE TABLE IF NOT EXISTS follow_up_questions (
 -- ============================================================
 
 -- Index for fetching user's questions
-CREATE INDEX idx_follow_up_questions_user_id ON follow_up_questions(user_id);
+CREATE INDEX IF NOT EXISTS idx_follow_up_questions_user_id ON follow_up_questions(user_id);
 
 -- Index for fetching current week's questions
-CREATE INDEX idx_follow_up_questions_week ON follow_up_questions(user_id, year, week_number);
+CREATE INDEX IF NOT EXISTS idx_follow_up_questions_week ON follow_up_questions(user_id, year, week_number);
 
 -- Index for fetching incomplete questions
-CREATE INDEX idx_follow_up_questions_incomplete ON follow_up_questions(user_id, is_completed) WHERE is_completed = false;
+CREATE INDEX IF NOT EXISTS idx_follow_up_questions_incomplete ON follow_up_questions(user_id, is_completed) WHERE is_completed = false;
 
 -- ============================================================
 -- 3. ROW LEVEL SECURITY (RLS)
 -- ============================================================
 
 ALTER TABLE follow_up_questions ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies
+DROP POLICY IF EXISTS "Users can view their own follow-up questions" ON follow_up_questions;
+DROP POLICY IF EXISTS "Users can update their own follow-up questions" ON follow_up_questions;
+DROP POLICY IF EXISTS "Service role can insert follow-up questions" ON follow_up_questions;
 
 -- Users can only see their own questions
 CREATE POLICY "Users can view their own follow-up questions"
@@ -77,6 +82,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_follow_up_questions_updated_at ON follow_up_questions;
 CREATE TRIGGER trigger_update_follow_up_questions_updated_at
   BEFORE UPDATE ON follow_up_questions
   FOR EACH ROW

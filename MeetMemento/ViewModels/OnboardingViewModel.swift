@@ -15,14 +15,12 @@ class OnboardingViewModel: ObservableObject {
     @Published var firstName: String = ""
     @Published var lastName: String = ""
     @Published var personalizationText: String = ""
-    @Published var selectedThemes: Set<String> = []
     @Published var isProcessing: Bool = false
     @Published var errorMessage: String? = nil
 
     // Resume state tracking
     @Published var hasProfile: Bool = false
     @Published var hasPersonalization: Bool = false
-    @Published var hasThemes: Bool = false
     @Published var isLoadingState: Bool = false
 
     // MARK: - Step Validation
@@ -38,11 +36,6 @@ class OnboardingViewModel: ObservableObject {
         personalizationText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 50
     }
 
-    /// Validates if themes step can proceed
-    var canProceedFromThemes: Bool {
-        !selectedThemes.isEmpty
-    }
-
     // MARK: - Resume Logic
 
     /// Determines if user should start at profile step (no profile data saved)
@@ -53,11 +46,6 @@ class OnboardingViewModel: ObservableObject {
     /// Determines if user should start at personalization step (has profile, no personalization)
     var shouldStartAtPersonalization: Bool {
         hasProfile && !hasPersonalization
-    }
-
-    /// Determines if user should start at themes step (has profile + personalization, no themes)
-    var shouldStartAtThemes: Bool {
-        hasProfile && hasPersonalization && !hasThemes
     }
 
     // MARK: - Data Persistence
@@ -89,44 +77,25 @@ class OnboardingViewModel: ObservableObject {
         isProcessing = false
     }
 
-    /// Save personalization text to Supabase
-    func savePersonalization() async throws {
+    /// Creates first journal entry from onboarding text
+    func createFirstJournalEntry(text: String) async throws {
         isProcessing = true
         errorMessage = nil
 
         do {
-            let trimmedText = personalizationText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            try await SupabaseService.shared.updateUserPersonalization(trimmedText)
+            // Create the first journal entry
+            let _ = try await SupabaseService.shared.createEntry(
+                title: "My First Entry",
+                text: trimmedText
+            )
 
-            AppLogger.log("✅ Personalization saved: \(trimmedText.prefix(50))...",
+            AppLogger.log("✅ First journal entry created: \(trimmedText.prefix(50))...",
                          category: AppLogger.general)
         } catch {
-            errorMessage = "Failed to save personalization: \(error.localizedDescription)"
-            AppLogger.log("❌ Personalization save error: \(error.localizedDescription)",
-                         category: AppLogger.general,
-                         type: .error)
-            throw error
-        }
-
-        isProcessing = false
-    }
-
-    /// Save selected themes to Supabase
-    func saveThemes() async throws {
-        isProcessing = true
-        errorMessage = nil
-
-        do {
-            let themesArray = Array(selectedThemes)
-
-            try await SupabaseService.shared.updateUserThemes(themesArray)
-
-            AppLogger.log("✅ Themes saved: \(themesArray.joined(separator: ", "))",
-                         category: AppLogger.general)
-        } catch {
-            errorMessage = "Failed to save themes: \(error.localizedDescription)"
-            AppLogger.log("❌ Themes save error: \(error.localizedDescription)",
+            errorMessage = "Failed to create journal entry: \(error.localizedDescription)"
+            AppLogger.log("❌ First entry creation error: \(error.localizedDescription)",
                          category: AppLogger.general,
                          type: .error)
             throw error
@@ -186,28 +155,15 @@ class OnboardingViewModel: ObservableObject {
                              category: AppLogger.general)
             }
 
-            // Check if personalization text exists (key is user_personalization_node in Supabase)
-            // Use pattern matching for AnyJSON type
-            if case .string(let personalization) = userMetadata["user_personalization_node"],
-               !personalization.isEmpty {
+            // Check if user has created at least one entry (indicates onboarding complete)
+            let entryCount = try? await SupabaseService.shared.getUserEntryCount()
+            if let count = entryCount, count > 0 {
                 self.hasPersonalization = true
-                self.personalizationText = personalization
-                AppLogger.log("✅ Found existing personalization text",
+                AppLogger.log("✅ Found \(count) existing entries",
                              category: AppLogger.general)
             }
 
-            // Check if themes exist (stored as comma-separated string)
-            // Use pattern matching for AnyJSON type
-            if case .string(let themesString) = userMetadata["selected_themes"],
-               !themesString.isEmpty {
-                let themesArray = themesString.split(separator: ",").map { String($0) }
-                self.hasThemes = true
-                self.selectedThemes = Set(themesArray)
-                AppLogger.log("✅ Found existing themes: \(themesArray.joined(separator: ", "))",
-                             category: AppLogger.general)
-            }
-
-            AppLogger.log("📊 Onboarding state loaded - Profile: \(hasProfile), Personalization: \(hasPersonalization), Themes: \(hasThemes)",
+            AppLogger.log("📊 Onboarding state loaded - Profile: \(hasProfile), HasEntries: \(hasPersonalization)",
                          category: AppLogger.general)
 
         } catch {
@@ -227,26 +183,10 @@ class OnboardingViewModel: ObservableObject {
         firstName = ""
         lastName = ""
         personalizationText = ""
-        selectedThemes = []
         isProcessing = false
         errorMessage = nil
         hasProfile = false
         hasPersonalization = false
-        hasThemes = false
         isLoadingState = false
-    }
-
-    /// Generate sample themes based on personalization text
-    /// (Placeholder - will be replaced with backend algorithm)
-    func generateThemes() -> [String] {
-        // Hardcoded themes for now - will be replaced with AI analysis
-        return [
-            "Work related stress",
-            "Keeping an image",
-            "Closing doors",
-            "Reaching acceptance",
-            "Choosing better",
-            "Living your own life"
-        ]
     }
 }

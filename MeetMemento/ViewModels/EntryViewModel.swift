@@ -206,6 +206,13 @@ class EntryViewModel: ObservableObject {
                             entryId: savedEntry.id
                         )
                         print("   ✅ RPC completed successfully")
+
+                        // FORCE UPDATE: Immediately update local state (failsafe)
+                        if let viewModel = questionsViewModel {
+                            await MainActor.run {
+                                viewModel.forceUpdateQuestionState(questionId: qId, isCompleted: true)
+                            }
+                        }
                     } catch {
                         print("❌ Failed to mark question as completed: \(error.localizedDescription)")
                         print("   Error details: \(error)")

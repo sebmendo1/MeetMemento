@@ -120,15 +120,19 @@ public struct CreateAccountView: View {
             }
         }
         .onAppear {
+            NSLog("🔵 CreateAccountView appeared")
+
             // Pre-populate fields from Apple Sign In if available
             if let pendingFirst = authViewModel.pendingFirstName, !pendingFirst.isEmpty {
                 firstName = pendingFirst
                 AppLogger.log("✅ Pre-populated firstName from Apple: \(pendingFirst)", category: AppLogger.general)
+                NSLog("✅ Pre-populated firstName from Apple")
             }
 
             if let pendingLast = authViewModel.pendingLastName, !pendingLast.isEmpty {
                 lastName = pendingLast
                 AppLogger.log("✅ Pre-populated lastName from Apple: \(pendingLast)", category: AppLogger.general)
+                NSLog("✅ Pre-populated lastName from Apple")
             }
         }
     }
@@ -163,13 +167,15 @@ public struct CreateAccountView: View {
                     // Clear pending profile data after successful save
                     authViewModel.clearPendingProfile()
 
-                    // Navigate to next step or dismiss
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        if let onComplete = onComplete {
-                            onComplete()
-                        } else {
-                            dismiss()
-                        }
+                    NSLog("✅ CreateAccountView: Profile saved, calling onComplete()")
+
+                    // Navigate immediately - no delay needed
+                    if let onComplete = onComplete {
+                        NSLog("✅ CreateAccountView: Calling onComplete callback")
+                        onComplete()
+                    } else {
+                        NSLog("⚠️ CreateAccountView: No onComplete callback, dismissing")
+                        dismiss()
                     }
                 }
 
@@ -177,6 +183,7 @@ public struct CreateAccountView: View {
                 await MainActor.run {
                     isLoading = false
                     status = "Error: \(error.localizedDescription)"
+                    NSLog("❌ CreateAccountView: Profile save failed: %@", error.localizedDescription)
                 }
             }
         }

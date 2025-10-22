@@ -175,14 +175,20 @@ public struct CreateAccountBottomSheet: View {
                     .useTypography()
             }
             .onChange(of: authViewModel.authState) { oldState, newState in
-                // When user becomes authenticated (OTP verified), dismiss OTP view and sheet
+                // When user becomes authenticated (OTP verified), dismiss everything
                 AppLogger.log("CreateAccountBottomSheet: authState changed from \(oldState) to \(newState)", category: AppLogger.general)
+                NSLog("🔵 CreateAccountBottomSheet: Auth state changed to \(newState)")
 
                 if newState.isAuthenticated {
+                    NSLog("🔵 CreateAccountBottomSheet: User authenticated, dismissing sheet")
+
+                    // Dismiss OTP fullScreenCover first
                     navigateToOTP = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+
+                    // Then dismiss this sheet
+                    // WelcomeView will detect auth state and show onboarding
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                         dismiss()
-                        onSignUpSuccess?()
                     }
                 }
             }

@@ -103,12 +103,12 @@ public struct ContentView: View {
             .navigationDestination(for: EntryRoute.self) { route in
                 switch route {
                 case .create:
-                    AddEntryView(entry: nil) { title, text in
+                    AddEntryView(state: .create) { title, text, _ in
                         entryViewModel.createEntry(title: title, text: text)
                         navigationPath.removeLast()
                     }
                 case .edit(let entry):
-                    AddEntryView(entry: entry) { title, text in
+                    AddEntryView(state: .edit(entry)) { title, text, _ in
                         var updated = entry
                         updated.title = title
                         updated.text = text
@@ -117,11 +117,11 @@ public struct ContentView: View {
                     }
                 case .followUp(let question):
                     // Legacy: Hardcoded question (no database tracking)
-                    AddEntryView(entry: nil, followUpQuestion: question) { title, text in
+                    AddEntryView(state: .followUp(questionText: question, questionId: nil)) { title, text, questionId in
                         entryViewModel.createFollowUpEntry(
                             title: title,
                             text: text,
-                            questionId: nil,  // No ID for legacy questions
+                            questionId: questionId,
                             question: question
                         )
                         // Show success screen instead of immediately going back
@@ -129,13 +129,21 @@ public struct ContentView: View {
                     }
                 case .followUpGenerated(let questionText, let questionId):
                     // NEW: Database-backed question with completion tracking
-                    AddEntryView(entry: nil, followUpQuestion: questionText) { title, text in
+                    AddEntryView(state: .followUp(questionText: questionText, questionId: questionId)) { title, text, qId in
+                        print("🟠🟠🟠 SAVE CALLBACK RECEIVED! 🟠🟠🟠")
+                        print("   Title: '\(title)'")
+                        print("   Text: \(text.count) chars")
+                        print("   qId (from callback): \(qId?.uuidString ?? "NIL")")
+                        print("   questionId (captured): \(questionId.uuidString)")
+
                         entryViewModel.createFollowUpEntry(
                             title: title,
                             text: text,
-                            questionId: questionId,  // Pass question ID for database completion
+                            questionId: qId,  // Pass question ID from callback parameter
                             question: questionText
                         )
+
+                        print("   createFollowUpEntry() call completed")
                         // Show success screen instead of immediately going back
                         showJournalCreated = true
                     }

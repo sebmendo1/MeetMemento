@@ -81,6 +81,12 @@ public struct WelcomeView: View {
             .padding()
             .background(theme.background.ignoresSafeArea())
         }
+        .onAppear {
+            // Check if user is authenticated and needs onboarding
+            // This catches cases where sheet dismisses and we need to show onboarding
+            NSLog("🔵 WelcomeView: onAppear - checking auth state")
+            checkAndShowOnboarding()
+        }
         .sheet(isPresented: $showCreateAccountSheet) {
             CreateAccountBottomSheet(onSignUpSuccess: {
                 showCreateAccountSheet = false
@@ -103,18 +109,36 @@ public struct WelcomeView: View {
                 .useTypography()
                 .environmentObject(authViewModel)
         }
+        .onChange(of: authViewModel.hasCompletedOnboarding) { oldValue, newValue in
+            // When onboarding completes, dismiss the fullScreenCover
+            if newValue {
+                NSLog("🔵 WelcomeView: Onboarding completed, dismissing fullScreenCover")
+                showOnboardingFlow = false
+            }
+        }
         .onChange(of: authViewModel.authState) { oldState, newState in
             // Watch combined auth state to prevent race conditions
             AppLogger.log("WelcomeView: authState changed from \(oldState) to \(newState)", category: AppLogger.general)
+            NSLog("🔵 WelcomeView: Auth state changed to \(newState)")
 
             // Show onboarding when user is authenticated but needs onboarding
-            if case .authenticated(let needsOnboarding) = newState, needsOnboarding {
-                // Add small delay to ensure any sheets are dismissed first
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    AppLogger.log("WelcomeView: Showing onboarding flow", category: AppLogger.general)
-                    showOnboardingFlow = true
-                }
-            }
+            checkAndShowOnboarding()
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    private func checkAndShowOnboarding() {
+        if case .authenticated(let needsOnboarding) = authViewModel.authState, needsOnboarding {
+            NSLog("🔵 WelcomeView: User authenticated, needs onboarding - showing flow")
+            AppLogger.log("WelcomeView: Showing onboarding flow", category: AppLogger.general)
+
+            // Close any open sheets first
+            showCreateAccountSheet = false
+            showSignInSheet = false
+
+            // Show onboarding immediately
+            showOnboardingFlow = true
         }
     }
 

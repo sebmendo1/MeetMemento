@@ -17,6 +17,8 @@ extension SupabaseService {
         let weekNumber = getCurrentWeekNumber()
         let year = getCurrentYear()
 
+        print("🔍 fetchCurrentWeekQuestions - week \(weekNumber), year \(year)")
+
         let response = try await client
             .from("follow_up_questions")
             .select()
@@ -24,12 +26,34 @@ extension SupabaseService {
             .eq("week_number", value: weekNumber)
             .eq("year", value: year)
             .order("relevance_score", ascending: false)
+            .limit(3)  // CRITICAL: Limit to top 3 questions (matches edge function output)
             .execute()
+
+        print("   - Raw response data:", String(data: response.data, encoding: .utf8)?.prefix(500) ?? "(empty)")
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        return try decoder.decode([GeneratedFollowUpQuestion].self, from: response.data)
+        let questions = try decoder.decode([GeneratedFollowUpQuestion].self, from: response.data)
+
+        print("   - Decoded \(questions.count) questions:")
+        for (index, q) in questions.enumerated() {
+            print("     [\(index)] id: \(q.id), isCompleted: \(q.isCompleted), text: \(q.questionText.prefix(50))...")
+        }
+
+        // DEDUPLICATE by question_text (keep first occurrence)
+        let uniqueQuestions = questions.reduce(into: [GeneratedFollowUpQuestion]()) { result, question in
+            if !result.contains(where: { $0.questionText == question.questionText }) {
+                result.append(question)
+            }
+        }
+
+        if uniqueQuestions.count < questions.count {
+            print("   ⚠️ Removed \(questions.count - uniqueQuestions.count) duplicate questions")
+            print("   - Total: \(questions.count) → Unique: \(uniqueQuestions.count)")
+        }
+
+        return uniqueQuestions
     }
 
     /// Fetch all incomplete questions for the user
@@ -136,23 +160,51 @@ extension SupabaseService {
             throw SupabaseServiceError.clientNotConfigured
         }
 
-        struct RPCParams: Encodable {
-            let p_question_id: String
-            let p_entry_id: String
+        print("🔧 completeFollowUpQuestion called:")
+        print("   - questionId: \(questionId.uuidString)")
+        print("   - entryId: \(entryId.uuidString)")
+
+        // Create update payload
+        struct QuestionCompletionUpdate: Encodable {
+            let is_completed: Bool
+            let completed_at: String
+            let entry_id: String
+            let updated_at: String
         }
 
-        let params = RPCParams(
-            p_question_id: questionId.uuidString,
-            p_entry_id: entryId.uuidString
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.string(from: Date())
+
+        let updateData = QuestionCompletionUpdate(
+            is_completed: true,
+            completed_at: now,
+            entry_id: entryId.uuidString,
+            updated_at: now
         )
 
-        let encoder = JSONEncoder()
-        let paramsData = try encoder.encode(params)
+        // Use direct UPDATE query instead of RPC to bypass PostgREST schema cache issues
+        // This is more reliable and doesn't require RPC function deployment
+        let response = try await client
+            .from("follow_up_questions")
+            .update(updateData)
+            .eq("id", value: questionId.uuidString)
+            .eq("user_id", value: try getCurrentUserId())
+            .execute()
 
-        _ = try await client.rpc(
-            "complete_follow_up_question",
-            params: paramsData
-        ).execute()
+        print("   - UPDATE response status: \(response.response.statusCode)")
+        print("   - UPDATE response data:", String(data: response.data, encoding: .utf8) ?? "(empty)")
+
+        // Check for successful status code
+        if response.response.statusCode == 200 || response.response.statusCode == 204 {
+            print("✅ completeFollowUpQuestion succeeded - question marked complete")
+        } else {
+            print("⚠️ Unexpected status code: \(response.response.statusCode)")
+            throw NSError(
+                domain: "SupabaseService",
+                code: response.response.statusCode,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to update question completion status"]
+            )
+        }
     }
 
     // MARK: - Helper Functions

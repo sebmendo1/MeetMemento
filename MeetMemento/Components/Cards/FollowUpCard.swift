@@ -17,15 +17,25 @@ struct FollowUpCard: View {
 
     // MARK: - State
     @State private var isPressed = false
+    @State private var animateCompletion = false
 
     var body: some View {
         Button(action: {
             // Don't allow tapping if already completed
-            guard !isCompleted else { return }
+            guard !isCompleted else {
+                print("⚠️ FollowUpCard: Tap ignored (already completed)")
+                return
+            }
+
+            print("🔵🔵🔵 FOLLOWUPCARD TAPPED! 🔵🔵🔵")
+            print("   Question: \(question)")
+            print("   isCompleted: \(isCompleted)")
 
             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
             impactFeedback.impactOccurred()
+
             onTap()
+            print("   onTap() completed")
         }) {
             HStack(alignment: .center, spacing: 12) {
                 // Question text
@@ -83,6 +93,15 @@ struct FollowUpCard: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Follow-up question: \(question)")
         .accessibilityHint(isCompleted ? "Completed" : "Tap to journal about this reflection question")
+        .onChange(of: isCompleted) { oldValue, newValue in
+            if newValue && !oldValue {
+                // Question just completed - trigger completion animation
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    animateCompletion = true
+                }
+                print("✅ FollowUpCard: Question marked as completed")
+            }
+        }
     }
     
 }

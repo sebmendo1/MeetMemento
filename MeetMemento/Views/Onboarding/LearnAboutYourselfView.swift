@@ -16,7 +16,6 @@ public struct LearnAboutYourselfView: View {
 
     @State private var entryText: String = ""
     @State private var isProcessing: Bool = false
-    @State private var showErrorAlert: Bool = false
     @FocusState private var isTextEditorFocused: Bool
 
     // Callback for when user completes this step
@@ -34,7 +33,7 @@ public struct LearnAboutYourselfView: View {
 
                     // Header
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("What would you like to learn about yourself?")
+                        Text("What would you like to explore through journaling?")
                             .font(type.h3)
                             .headerGradient()
                             .multilineTextAlignment(.leading)
@@ -48,7 +47,7 @@ public struct LearnAboutYourselfView: View {
                         // Text editor - clean JournalPageView style
                         ZStack(alignment: .topLeading) {
                             if entryText.isEmpty {
-                                Text("Example: I want to understand my emotional patterns when I'm stressed, or learn more about what motivates me at work...")
+                                Text("Share what's on your mind, what you're working through, or what you hope to discover about yourself...")
                                     .font(.system(size: 17))
                                     .lineSpacing(5)
                                     .foregroundStyle(theme.mutedForeground.opacity(0.5))
@@ -63,6 +62,19 @@ public struct LearnAboutYourselfView: View {
                                 .scrollContentBackground(.hidden)
                                 .frame(minHeight: 300)
                         }
+
+                        // Character counter
+                        HStack {
+                            Spacer()
+                            Text("\(entryText.count) / 2000")
+                                .font(type.captionText)
+                                .foregroundStyle(
+                                    entryText.count > 2000 ? Color.red :
+                                    entryText.count < 50 ? theme.mutedForeground.opacity(0.5) :
+                                    theme.mutedForeground
+                                )
+                        }
+                        .padding(.top, 4)
                     }
                     .padding(.horizontal, 16)
 
@@ -106,27 +118,13 @@ public struct LearnAboutYourselfView: View {
                 isTextEditorFocused = true
             }
         }
-        .onChange(of: onboardingViewModel.errorMessage) { oldValue, newValue in
-            if let error = newValue, isProcessing {
-                // Reset processing state and show error
-                isProcessing = false
-                showErrorAlert = true
-            }
-        }
-        .alert("Error", isPresented: $showErrorAlert) {
-            Button("OK") {
-                // Clear the error message
-                onboardingViewModel.errorMessage = nil
-            }
-        } message: {
-            Text(onboardingViewModel.errorMessage ?? "An error occurred. Please try again.")
-        }
     }
 
     // MARK: - Computed Properties
 
     private var canProceed: Bool {
-        !isProcessing && entryText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 20
+        let count = entryText.trimmingCharacters(in: .whitespacesAndNewlines).count
+        return !isProcessing && count >= 50 && count <= 2000
     }
 
     // MARK: - Actions
@@ -134,14 +132,14 @@ public struct LearnAboutYourselfView: View {
     private func completeStep() {
         guard canProceed else { return }
 
-        isProcessing = true
         let trimmedText = entryText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Haptic feedback
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
-        // Call completion handler with user's input
-        // Keep isProcessing = true until navigation occurs
+        NSLog("✅ LearnAboutYourselfView: User completed entry, navigating to loading state")
+
+        // Call completion handler - will navigate to loading state
         onComplete?(trimmedText)
     }
 }
