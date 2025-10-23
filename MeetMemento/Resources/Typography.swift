@@ -10,6 +10,7 @@ public struct Typography {
     public let caption: CGFloat
     public let bodyS: CGFloat
     public let bodyL: CGFloat
+    public let titleXS: CGFloat
     public let titleS: CGFloat
     public let titleM: CGFloat
     public let displayL: CGFloat
@@ -32,7 +33,8 @@ public struct Typography {
         micro: CGFloat = 11,
         caption: CGFloat = 13,
         bodyS: CGFloat = 15,
-        bodyL: CGFloat = 17,
+        bodyL: CGFloat = 18,
+        titleXS: CGFloat = 16,
         titleS: CGFloat = 20,
         titleM: CGFloat = 24,
         displayL: CGFloat = 32,
@@ -45,6 +47,7 @@ public struct Typography {
         self.caption = caption
         self.bodyS = bodyS
         self.bodyL = bodyL
+        self.titleXS = titleXS
         self.titleS = titleS
         self.titleM = titleM
         self.displayL = displayL
@@ -85,6 +88,8 @@ public struct Typography {
     public var h2: Font { headingFont(size: displayL) }
     public var h3: Font { headingFont(size: titleM) }
     public var h4: Font { headingFont(size: titleS) }
+    public var h5: Font { headingFont(size: titleXS) }
+    public var h6: Font { bodyFont(size: titleXS, weight: .bold) }
 
     public var body: Font { bodyFont(size: bodyL, weight: weightNormal) }
     public var bodyBold: Font { bodyFont(size: bodyL, weight: .bold) }
@@ -161,6 +166,14 @@ public extension View {
     func h4(_ env: EnvironmentValues) -> some View {
         self.font(env.typography.h4)
             .modifier(env.typography.headingLineSpacingModifier(for: env.typography.titleS))
+    }
+    func h5(_ env: EnvironmentValues) -> some View {
+        self.font(env.typography.h5)
+            .modifier(env.typography.headingLineSpacingModifier(for: env.typography.titleXS))
+    }
+    func h6(_ env: EnvironmentValues) -> some View {
+        self.font(env.typography.h6)
+            .modifier(env.typography.headingLineSpacingModifier(for: env.typography.titleXS))
     }
     func bodyText(_ env: EnvironmentValues) -> some View {
         self.font(env.typography.body)

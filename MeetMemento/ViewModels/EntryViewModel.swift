@@ -14,14 +14,17 @@ class EntryViewModel: ObservableObject {
     @Published var entries: [Entry] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
-    @Published var completedFollowUpQuestions: [String] = [] // Tracks which questions have been answered (legacy)
+
+    // JSON Export
+    @Published var latestExport: EntriesExport?
+    @Published var lastExportDate: Date?
 
     private let supabaseService = SupabaseService.shared
+    private let exportService = EntryExportService.shared
 
-    // Reference to GeneratedQuestionsViewModel for database completion tracking
-    var questionsViewModel: GeneratedQuestionsViewModel?
    private var hasLoadedOnce = false
    private var isLoadingInProgress = false // Prevent concurrent load operations
+   private var exportTask: Task<Void, Never>? // Track export task to prevent race conditions
     
     // MARK: - Month Grouping
     
@@ -86,6 +89,9 @@ class EntryViewModel: ObservableObject {
                 try await self.supabaseService.fetchEntries()
             }
             print("✅ Loaded \(entries.count) entries from Supabase")
+
+            // Regenerate export after loading entries
+            scheduleExportRegeneration()
         } catch {
             // Handle different types of errors appropriately
             let errorDescription = error.localizedDescription.lowercased()
@@ -129,8 +135,7 @@ class EntryViewModel: ObservableObject {
         // Create optimistic entry for instant UI feedback
         let optimisticEntry = Entry(
             title: title.isEmpty ? "Untitled" : title,
-            text: text,
-            isFollowUp: false
+            text: text
         )
         
         // Add to UI immediately (optimistic update)
@@ -143,15 +148,18 @@ class EntryViewModel: ObservableObject {
             
             do {
                 let savedEntry = try await supabaseService.createEntry(title: title, text: text)
-                
+
                 // Replace optimistic entry with real one from server
                 if let index = entries.firstIndex(where: { $0.id == optimisticEntry.id }) {
                     entries[index] = savedEntry
                 }
-                
+
                 print("✅ Saved entry to Supabase: \(savedEntry.id)")
                 print("   Title: \(title.isEmpty ? "(Untitled)" : title)")
                 print("   Text: \(text.prefix(50))...")
+
+                // Regenerate export after creation
+                scheduleExportRegeneration()
             } catch {
                 // Remove optimistic entry on failure
                 entries.removeAll(where: { $0.id == optimisticEntry.id })
@@ -160,119 +168,26 @@ class EntryViewModel: ObservableObject {
             }
         }
     }
-    
-    /// Creates a new follow-up entry and marks the question as completed in database
-    func createFollowUpEntry(
-        title: String,
-        text: String,
-        questionId: UUID? = nil,  // NEW: Optional question ID for database tracking
-        question: String
-    ) {
-        // Create optimistic entry for instant UI feedback
-        let optimisticEntry = Entry(
-            title: title.isEmpty ? "Untitled" : title,
-            text: text,
-            isFollowUp: true
-        )
 
-        // Add to UI immediately (optimistic update)
-        entries.insert(optimisticEntry, at: 0)
-        print("✅ Optimistically created follow-up entry: \(optimisticEntry.id)")
-
-        // Save to Supabase in background
-        Task {
-            errorMessage = nil
-
-            do {
-                let savedEntry = try await supabaseService.createEntry(title: title, text: text)
-
-                // Replace optimistic entry with real one from server, preserving follow-up flag
-                if let index = entries.firstIndex(where: { $0.id == optimisticEntry.id }) {
-                    var followUpEntry = savedEntry
-                    followUpEntry.isFollowUp = true
-                    entries[index] = followUpEntry
-                }
-
-                // Mark question as completed (DATABASE or LEGACY)
-                if let qId = questionId {
-                    // NEW: Database completion tracking
-                    print("🔄 Starting completion tracking for question: \(qId)")
-
-                    // Try to mark as completed in database
-                    do {
-                        print("   📤 Calling completeFollowUpQuestion RPC...")
-                        try await supabaseService.completeFollowUpQuestion(
-                            questionId: qId,
-                            entryId: savedEntry.id
-                        )
-                        print("   ✅ RPC completed successfully")
-
-                        // FORCE UPDATE: Immediately update local state (failsafe)
-                        if let viewModel = questionsViewModel {
-                            await MainActor.run {
-                                viewModel.forceUpdateQuestionState(questionId: qId, isCompleted: true)
-                            }
-                        }
-                    } catch {
-                        print("❌ Failed to mark question as completed: \(error.localizedDescription)")
-                        print("   Error details: \(error)")
-                        // Continue anyway - we still want to refresh the UI
-                    }
-
-                    // ALWAYS refresh questions after completion attempt (with delay for DB propagation)
-                    // This ensures UI updates even if RPC had issues
-                    do {
-                        // Small delay to ensure database update has propagated
-                        try await Task.sleep(nanoseconds: 300_000_000) // 300ms
-
-                        print("   🔄 Fetching updated questions...")
-                        if let viewModel = questionsViewModel {
-                            await viewModel.fetchQuestions()
-                            print("   ✅ Questions refreshed - UI should update")
-                        } else {
-                            print("   ⚠️ questionsViewModel is nil - cannot refresh")
-                        }
-                    } catch {
-                        print("⚠️ Sleep or fetch interrupted: \(error.localizedDescription)")
-                    }
-
-                    print("✅ Marked database question as completed: \(question)")
-                } else {
-                    // Legacy: in-memory completion for hardcoded questions
-                    if !completedFollowUpQuestions.contains(question) {
-                        completedFollowUpQuestions.append(question)
-                        print("✅ Marked legacy question as completed: \(question)")
-                    }
-                }
-
-                print("✅ Saved follow-up entry to Supabase: \(savedEntry.id)")
-                print("   Title: \(title.isEmpty ? "(Untitled)" : title)")
-                print("   Text: \(text.prefix(50))...")
-            } catch {
-                // Remove optimistic entry on failure
-                entries.removeAll(where: { $0.id == optimisticEntry.id })
-                errorMessage = "Failed to create entry: \(error.localizedDescription)"
-                print("❌ Create follow-up error: \(error)")
-            }
-        }
-    }
-    
     // MARK: - Update Entry
     
     /// Updates an existing entry in Supabase.
     func updateEntry(_ updatedEntry: Entry) {
         Task {
             errorMessage = nil
-            
+
             do {
                 let result = try await supabaseService.updateEntry(updatedEntry)
-                
+
                 // Update local array
                 if let index = entries.firstIndex(where: { $0.id == result.id }) {
                     entries[index] = result
                 }
-                
+
                 print("✅ Updated entry: \(result.id)")
+
+                // Regenerate export after update
+                scheduleExportRegeneration()
             } catch {
                 errorMessage = "Failed to update entry: \(error.localizedDescription)"
                 print("❌ Update error: \(error)")
@@ -286,21 +201,85 @@ class EntryViewModel: ObservableObject {
     func deleteEntry(id: UUID) {
         Task {
             errorMessage = nil
-            
+
             do {
                 try await supabaseService.deleteEntry(id: id)
-                
+
                 // Remove from local array
                 entries.removeAll(where: { $0.id == id })
-                
+
                 print("🗑️ Deleted entry: \(id)")
+
+                // Regenerate export after deletion
+                scheduleExportRegeneration()
             } catch {
                 errorMessage = "Failed to delete entry: \(error.localizedDescription)"
                 print("❌ Delete error: \(error)")
             }
         }
     }
-    
+
+    // MARK: - JSON Export
+
+    /// Schedules export regeneration with debouncing to prevent race conditions
+    /// Cancels any pending export task before scheduling a new one
+    private func scheduleExportRegeneration() {
+        exportTask?.cancel()
+        exportTask = Task {
+            // Debounce: wait 500ms before regenerating
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            await regenerateExport()
+        }
+    }
+
+    /// Regenerates the JSON export from current entries
+    /// - Saves to file and updates in-memory cache
+    /// - Runs in background without blocking UI
+    func regenerateExport() async {
+        do {
+            // Create export from current entries
+            let export = exportService.createExport(from: entries)
+
+            // Save to file (background operation)
+            let fileURL = try await exportService.saveToFile(export)
+
+            // Update published properties on main actor
+            await MainActor.run {
+                self.latestExport = export
+                self.lastExportDate = Date()
+            }
+
+            print("📦 Export regenerated: \(entries.count) entries")
+            print("   Saved to: \(fileURL.lastPathComponent)")
+        } catch {
+            print("⚠️ Failed to regenerate export: \(error.localizedDescription)")
+            // Don't show error to user - export is background operation
+        }
+    }
+
+    /// Returns the current export as JSON string for edge functions
+    /// - Returns: JSON string of all entries, or nil if no entries
+    func getExportJSON() async throws -> String? {
+        // Use cached export if available and recent
+        if let cached = latestExport,
+           let lastExport = lastExportDate,
+           Date().timeIntervalSince(lastExport) < 60 { // Cache valid for 60 seconds
+            return try exportService.getJSONString(from: cached)
+        }
+
+        // Otherwise regenerate
+        let export = exportService.createExport(from: entries)
+
+        // Update cache
+        await MainActor.run {
+            self.latestExport = export
+            self.lastExportDate = Date()
+        }
+
+        return try exportService.getJSONString(from: export)
+    }
+
     // MARK: - Mock Data (for testing/previews only)
 
     /// Loads mock entries for testing and previews (doesn't affect Supabase).

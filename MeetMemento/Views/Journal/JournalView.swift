@@ -2,15 +2,14 @@
 //  JournalView.swift
 //  MeetMemento
 //
-//  Main journal view with tabs for "Your Entries" and "Dig Deeper"
+//  Main journal view with tabs for "Journal" and "Insights"
 //
 
 import SwiftUI
 
 public struct JournalView: View {
-    @State private var topSelection: JournalTopTab = .yourEntries
+    @State private var topSelection: JournalTopTab
     @EnvironmentObject var entryViewModel: EntryViewModel
-    @StateObject private var questionsViewModel = GeneratedQuestionsViewModel()
 
     let onSettingsTapped: () -> Void
     let onNavigateToEntry: (EntryRoute) -> Void
@@ -18,22 +17,17 @@ public struct JournalView: View {
     @Environment(\.theme) private var theme
 
     public init(
+        initialTab: JournalTopTab = .yourEntries,
         onSettingsTapped: @escaping () -> Void = {},
         onNavigateToEntry: @escaping (EntryRoute) -> Void = { _ in }
     ) {
+        _topSelection = State(initialValue: initialTab)
         self.onSettingsTapped = onSettingsTapped
         self.onNavigateToEntry = onNavigateToEntry
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            // Header with tabs and settings button
-            Header(
-                variant: .tabs,
-                selection: $topSelection,
-                onSettingsTapped: onSettingsTapped
-            )
-
+        ZStack(alignment: .top) {
             // Content area - swipeable between tabs with lazy loading
             TabView(selection: $topSelection) {
                 YourEntriesView(
@@ -42,32 +36,72 @@ public struct JournalView: View {
                 )
                 .tag(JournalTopTab.yourEntries)
 
-                DigDeeperView(
-                    entryViewModel: entryViewModel,
-                    questionsViewModel: questionsViewModel,
-                    currentTab: topSelection,
-                    onNavigateToEntry: onNavigateToEntry
-                )
-                .tag(JournalTopTab.digDeeper)
+                InsightsView()
+                    .environmentObject(entryViewModel)
+                    .tag(JournalTopTab.digDeeper)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-        }
-        .background(theme.background.ignoresSafeArea())
-        .onAppear {
-            // Connect EntryViewModel to GeneratedQuestionsViewModel for completion tracking
-            entryViewModel.questionsViewModel = questionsViewModel
+            .background(
+                Group {
+                    if topSelection == .digDeeper {
+                        theme.insightsBackground
+                    } else {
+                        Color.clear
+                    }
+                }
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.35), value: topSelection)
+            )
 
+            // Gradient background (only on Journal tab)
+            gradientBackground
+                .frame(height: 104)
+                .allowsHitTesting(false)
+                .opacity(topSelection == .yourEntries ? 1 : 0)
+                .animation(.easeInOut(duration: 0.35), value: topSelection)
+                .zIndex(5)
+
+            // Header with tabs and settings button (fixed position)
+            Header(
+                variant: .tabs,
+                selection: $topSelection,
+                onSettingsTapped: onSettingsTapped
+            )
+            .background(Color.clear)
+            .zIndex(10) // Ensure header stays on top
+        }
+        .background(
+            Group {
+                if topSelection == .digDeeper {
+                    Color.clear
+                } else {
+                    theme.background
+                }
+            }
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.35), value: topSelection)
+        )
+        .onAppear {
             // Load entries when JournalView appears (deferred from app launch for better performance)
             Task {
                 await entryViewModel.loadEntriesIfNeeded()
-
-                // After entries load, pre-fetch questions if user has any entries
-                // (DigDeeperView will auto-generate if none exist)
-                if !entryViewModel.entries.isEmpty {
-                    await questionsViewModel.fetchQuestions()
-                }
             }
         }
+    }
+
+    // MARK: - Gradient Background
+
+    private var gradientBackground: some View {
+        LinearGradient(
+            gradient: Gradient(stops: [
+                .init(color: Color(hex: "#EFEFEF"), location: 0),
+                .init(color: Color(hex: "#EFEFEF"), location: 0.5388),
+                .init(color: Color(hex: "#EFEFEF").opacity(0), location: 1)
+            ]),
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea(edges: .top)
     }
 }
 
@@ -98,6 +132,22 @@ public struct JournalView: View {
     .environmentObject(viewModel)
     .onAppear {
         viewModel.loadMockEntries() // Load sample data for preview only
+    }
+    .useTheme()
+    .useTypography()
+}
+
+#Preview("Insights • With Content") {
+    @Previewable @StateObject var viewModel = EntryViewModel()
+
+    JournalView(
+        initialTab: .digDeeper,
+        onSettingsTapped: {},
+        onNavigateToEntry: { _ in }
+    )
+    .environmentObject(viewModel)
+    .onAppear {
+        viewModel.loadMockEntries() // Load sample data to show insights content
     }
     .useTheme()
     .useTypography()

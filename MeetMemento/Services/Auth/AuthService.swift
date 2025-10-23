@@ -16,7 +16,7 @@ final class AuthService: NSObject {
     static let shared = AuthService()
 
     /// Update this in one place to control the callback URL scheme used by OAuth providers.
-    /// TODO: Configure Xcode: Target → Info → URL Types → URL Schemes = "memento"
+    /// ⚠️ IMPORTANT: URL scheme not configured. Add "memento" to Target → Info → URL Types for OAuth redirect
     struct Constants {
         static let callbackURL = URL(string: "memento://auth-callback")!
     }

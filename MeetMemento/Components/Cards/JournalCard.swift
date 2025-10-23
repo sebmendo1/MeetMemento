@@ -22,34 +22,32 @@ struct JournalCard: View {
     // MARK: - Body
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 header
+
                 Text(excerpt)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(type.bodySmall)
+                    .foregroundStyle(theme.mutedForeground)
                     .lineLimit(3)
                     .multilineTextAlignment(.leading)
+
                 footer
             }
-            .padding(.vertical, 16)
-            .padding(.horizontal, 16)
-            
-            Divider()
-                .background(theme.border) // Uses theme border color
-            
+            .padding(.vertical, 20)
+            .padding(.horizontal, 20)
         }
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.background)
+                .fill(theme.card)
         )
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .animation(.easeInOut(duration: 0.1), value: isPressed)
         .contentShape(Rectangle())
-        .onTapGesture { 
+        .onTapGesture {
             // Add haptic feedback for better user experience
             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
             impactFeedback.impactOccurred()
-            onTap?() 
+            onTap?()
         }
         .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
             withAnimation(.easeInOut(duration: 0.1)) {
@@ -62,12 +60,12 @@ struct JournalCard: View {
 
     // MARK: - Subviews
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .top) {
             Text(title)
-                .font(type.bodyBold) // Manrope Bold for card headers
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .truncationMode(.tail)
+                .font(type.h4) // Recoleta heading font for prominence
+                .foregroundStyle(theme.foreground)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
             Spacer(minLength: 8)
             MoreButton(action: { onMoreTapped?() })
         }
@@ -77,29 +75,52 @@ struct JournalCard: View {
         HStack(spacing: 8) {
             Image(systemName: "calendar")
                 .imageScale(.small)
-                .foregroundStyle(.secondary)
-            Text(date.formatted(date: .abbreviated, time: .shortened))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.mutedForeground)
+            Text(formattedDate)
+                .font(type.bodySmall)
+                .foregroundStyle(theme.mutedForeground)
             Spacer()
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Journal entry date \(date.formatted(date: .abbreviated, time: .shortened))")
+        .accessibilityLabel("Journal entry date \(formattedDate)")
+    }
+
+    // MARK: - Date Formatting
+    private var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+
+        // Add ordinal suffix (st, nd, rd, th)
+        let day = Calendar.current.component(.day, from: date)
+        let suffix: String
+        switch day {
+        case 1, 21, 31: suffix = "st"
+        case 2, 22: suffix = "nd"
+        case 3, 23: suffix = "rd"
+        default: suffix = "th"
+        }
+
+        let year = Calendar.current.component(.year, from: date)
+        let month = formatter.string(from: date)
+
+        return "\(month)\(suffix), \(year)"
     }
 
     private var accessibilityLabel: String {
-        "Journal card, \(title). Dated \(date.formatted(date: .abbreviated, time: .shortened)). \(excerpt)"
+        "Journal card, \(title). Dated \(formattedDate). \(excerpt)"
     }
 }
 
 // MARK: - Three-dot (More) Button
 private struct MoreButton: View {
+    @Environment(\.theme) private var theme
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: "ellipsis")
                 .imageScale(.medium)
+                .foregroundStyle(theme.foreground)
                 .padding(6)
         }
         .buttonStyle(.plain)
@@ -111,25 +132,36 @@ private struct MoreButton: View {
 
 // MARK: - Sample Data (for previews & local playgrounds)
 extension JournalCard {
-    static let sampleTitle = "Morning reflection"
-    static let sampleExcerpt = "Gratitude for small wins, 5km run, and intention to ship the journaling UI before wiring the backend."
+    static let sampleTitle = "Morning Reflection"
+    static let sampleExcerpt = "I woke up feeling a bit groggy and not entirely refreshed. The alarm felt a bit harsh, and I struggled to get out of bed. Once I did, I noticed that the sky .."
 }
 
 // MARK: - SIDE-CAR PREVIEW HARNESS
 // Keep previews in the same file for convenience, or move into `JournalCard+Preview.swift`.
 // Import NOTHING from your app target here besides SwiftUI and this view file.
 private struct JournalCardHarness: View {
+    // Create Oct 3rd, 2025 date for preview
+    private var previewDate: Date {
+        var components = DateComponents()
+        components.year = 2025
+        components.month = 10
+        components.day = 3
+        return Calendar.current.date(from: components) ?? .now
+    }
+
     var body: some View {
         JournalCard(
             title: JournalCard.sampleTitle,
             excerpt: JournalCard.sampleExcerpt,
-            date: .now,
+            date: previewDate,
             onTap: { /* no-op for harness */ },
             onMoreTapped: { /* present a mock sheet/menu in sandbox if you want */ }
         )
         .previewLayout(.sizeThatFits)
         .frame(maxWidth: .infinity) // allow card to stretch
         .background(Color(uiColor: .systemBackground))
+        .useTheme()
+        .useTypography()
     }
 }
 

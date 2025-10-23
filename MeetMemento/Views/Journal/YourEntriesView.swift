@@ -160,7 +160,7 @@ struct YourEntriesView: View {
                         .padding(.horizontal, 4)
 
                         // Entries for this month
-                        VStack(spacing: 0) {
+                        VStack(spacing: 16) {
                             ForEach(monthGroup.entries) { entry in
                                 JournalCard(
                                     title: entry.displayTitle,
@@ -182,7 +182,8 @@ struct YourEntriesView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 28) // 12px existing + 16px additional = 28px total
+            .padding(.top, 108) // 80px header + 28px spacing
+            .padding(.bottom, 20) // Bottom padding for scrolling
         }
         .refreshable {
             // Pull-to-refresh - force reload even if already loaded

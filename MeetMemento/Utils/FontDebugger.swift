@@ -9,6 +9,7 @@
 import SwiftUI
 import UIKit
 
+#if DEBUG
 struct FontDebugger {
     /// Prints all available font families and their fonts to console
     static func printAllFonts() {
@@ -95,3 +96,4 @@ extension String {
 #Preview("Font Debugger") {
     FontDebugger.createFontPreviewView()
 }
+#endif

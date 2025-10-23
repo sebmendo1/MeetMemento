@@ -15,8 +15,8 @@ struct MockData {
         createdAt: Date(),
         updatedAt: Date()
     )
-    
-    static let sampleInsight = Insight(id: UUID())
+
+    // Use JournalInsights.sample for insights data
     static let sampleUser = User(id: UUID())
 }
 

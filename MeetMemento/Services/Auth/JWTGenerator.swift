@@ -72,7 +72,7 @@ struct AppleJWTGenerator {
 
     /// Cleans the private key by removing PEM headers and newlines
     private static func cleanPrivateKey(_ key: String) -> String {
-        var cleaned = key
+        let cleaned = key
             .replacingOccurrences(of: "-----BEGIN PRIVATE KEY-----", with: "")
             .replacingOccurrences(of: "-----END PRIVATE KEY-----", with: "")
             .replacingOccurrences(of: "\n", with: "")

@@ -52,10 +52,19 @@ public struct Header: View {
             Button(action: onSettingsTapped) {
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(theme.foreground)
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [theme.fabGradientStart, theme.fabGradientEnd]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .clipShape(Circle())
+                    .shadow(color: theme.primary.opacity(0.3), radius: 6, x: 0, y: 4)
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("Settings")
         }
         .padding(.horizontal, horizontalPadding)

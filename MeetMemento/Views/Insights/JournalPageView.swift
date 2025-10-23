@@ -11,9 +11,9 @@ struct JournalPageView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
-    
-    @ObservedObject var entryViewModel: EntryViewModel
-    
+
+    @EnvironmentObject var entryViewModel: EntryViewModel
+
     let entry: Entry
     @State private var editedTitle: String
     @State private var editedText: String
@@ -26,9 +26,8 @@ struct JournalPageView: View {
         case text
     }
     
-    init(entry: Entry, entryViewModel: EntryViewModel) {
+    init(entry: Entry) {
         self.entry = entry
-        self.entryViewModel = entryViewModel
         _editedTitle = State(initialValue: entry.title)
         _editedText = State(initialValue: entry.text)
     }
@@ -185,19 +184,18 @@ struct JournalPageView: View {
     
     private func saveChanges() {
         isSaving = true
-        
+
         var updatedEntry = entry
         updatedEntry.title = editedTitle
         updatedEntry.text = editedText
-        
+
         entryViewModel.updateEntry(updatedEntry)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            isSaving = false
-            isEditing = false
-            focusedField = nil
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        }
+
+        // Update UI immediately after initiating save
+        isSaving = false
+        isEditing = false
+        focusedField = nil
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 }
 
@@ -219,19 +217,15 @@ extension View {
 // MARK: - Previews
 
 #Preview("View Mode") {
-    JournalPageView(
-        entry: Entry.sampleEntries[0],
-        entryViewModel: EntryViewModel()
-    )
-    .useTheme()
-    .useTypography()
+    JournalPageView(entry: Entry.sampleEntries[0])
+        .environmentObject(EntryViewModel())
+        .useTheme()
+        .useTypography()
 }
 
 #Preview("Untitled Entry") {
-    JournalPageView(
-        entry: Entry.sampleEntries[2],
-        entryViewModel: EntryViewModel()
-    )
-    .useTheme()
-    .useTypography()
+    JournalPageView(entry: Entry.sampleEntries[2])
+        .environmentObject(EntryViewModel())
+        .useTheme()
+        .useTypography()
 }

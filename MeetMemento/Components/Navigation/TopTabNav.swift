@@ -18,8 +18,8 @@ public enum JournalTopTab: String, CaseIterable, Identifiable, Hashable {
     public var id: String { rawValue }
     public var title: String {
         switch self {
-        case .yourEntries: return "Your Entries"
-        case .digDeeper:   return "Dig deeper"
+        case .yourEntries: return "Journal"
+        case .digDeeper:   return "Insights"
         }
     }
 }
@@ -95,19 +95,29 @@ public struct TopNav: View {
         } label: {
             Text(tab.title)
                 .font(type.bodyBold)
-                .foregroundStyle(theme.primary)
+                .foregroundStyle(
+                    // White text if selected OR if Insights tab is active (for visibility on purple background)
+                    isSelected || selection == .digDeeper
+                        ? theme.primaryForeground
+                        : theme.primary
+                )
                 .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .frame(height: 40)
                 .background(
                     ZStack {
                         if isSelected {
                             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(theme.accent.opacity(0.12))
+                                .fill(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [theme.fabGradientStart, theme.fabGradientEnd]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
                                 .matchedGeometryEffect(id: "tabPill", in: tabAnimation)
                         }
                     }
                 )
-                .frame(maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .accessibilityAddTraits(isSelected ? [.isHeader, .isSelected] : [.isHeader])
         }

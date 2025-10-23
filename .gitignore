@@ -96,6 +96,9 @@ iOSInjectionProject/
 .env.local
 .env*.local
 
+# Supabase config file (contains credentials)
+MeetMemento/Resources/SupabaseConfig.swift
+
 # Supabase local development
 supabase/.branches
 supabase/.temp

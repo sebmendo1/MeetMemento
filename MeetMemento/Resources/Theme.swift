@@ -133,6 +133,17 @@ struct Theme {
         )
     }
 
+    // Insights background gradient
+    let insightsBackgroundStart: Color
+    let insightsBackgroundEnd: Color
+    var insightsBackground: LinearGradient {
+        LinearGradient(
+            gradient: Gradient(colors: [insightsBackgroundStart, insightsBackgroundEnd]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     // Sidebar
     let sidebar: Color
     let sidebarForeground: Color
@@ -146,7 +157,7 @@ struct Theme {
     // MARK: - Palettes
 
     static let light = Theme(
-        background: GrayScale.gray50,
+        background: Color(hex: "#EFEFEF"),
         foreground: GrayScale.gray900,
         card: BaseColors.white,
         cardForeground: GrayScale.gray900,
@@ -186,6 +197,9 @@ struct Theme {
 
         backgroundGradientStart: PrimaryScale.primary600,
         backgroundGradientEnd: PrimaryScale.primary700,
+
+        insightsBackgroundStart: PrimaryScale.primary800,
+        insightsBackgroundEnd: PrimaryScale.primary700,
 
         sidebar: BaseColors.white,
         sidebarForeground: GrayScale.gray900,
@@ -238,6 +252,9 @@ struct Theme {
 
         backgroundGradientStart: PrimaryScale.primary600,
         backgroundGradientEnd: PrimaryScale.primary700,
+
+        insightsBackgroundStart: PrimaryScale.primary800,
+        insightsBackgroundEnd: PrimaryScale.primary700,
 
         sidebar: GrayScale.gray800,
         sidebarForeground: GrayScale.gray50,

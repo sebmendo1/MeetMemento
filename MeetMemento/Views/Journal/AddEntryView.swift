@@ -12,7 +12,6 @@ import SwiftUI
 public enum EntryState: Hashable {
     case create           // Regular journal entry
     case edit(Entry)      // Editing existing entry
-    case followUp(questionText: String, questionId: UUID?)  // Answering follow-up question
 }
 
 public struct AddEntryView: View {
@@ -32,11 +31,11 @@ public struct AddEntryView: View {
     }
 
     let state: EntryState
-    let onSave: (_ title: String, _ text: String, _ questionId: UUID?) -> Void
+    let onSave: (_ title: String, _ text: String) -> Void
 
     public init(
         state: EntryState,
-        onSave: @escaping (_ title: String, _ text: String, _ questionId: UUID?) -> Void
+        onSave: @escaping (_ title: String, _ text: String) -> Void
     ) {
         self.state = state
         self.onSave = onSave
@@ -49,31 +48,13 @@ public struct AddEntryView: View {
         case .edit(let entry):
             _title = State(initialValue: entry.title)
             _text = State(initialValue: entry.text)
-        case .followUp(let questionText, _):
-            _title = State(initialValue: questionText)
-            _text = State(initialValue: "")
         }
     }
 
     // MARK: - Computed Properties
 
-    private var isFollowUpEntry: Bool {
-        if case .followUp = state { return true }
-        return false
-    }
-
-    private var followUpQuestionText: String? {
-        if case .followUp(let text, _) = state { return text }
-        return nil
-    }
-
     private var editingEntry: Entry? {
         if case .edit(let entry) = state { return entry }
-        return nil
-    }
-
-    private var questionId: UUID? {
-        if case .followUp(_, let id) = state { return id }
         return nil
     }
     
@@ -92,7 +73,7 @@ public struct AddEntryView: View {
             }
             .padding(.horizontal, 20)
         }
-        .background(theme.background.ignoresSafeArea())
+        .background(BaseColors.white.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -100,12 +81,6 @@ public struct AddEntryView: View {
             }
         }
         .onAppear {
-            print("🟢🟢🟢 ADDENTRYVIEW APPEARED! 🟢🟢🟢")
-            print("   State: \(state)")
-            if case .followUp(let q, let id) = state {
-                print("   Question: \(q)")
-                print("   QuestionId: \(id?.uuidString ?? "NIL")")
-            }
             setupInitialFocus()
         }
     }
@@ -113,32 +88,20 @@ public struct AddEntryView: View {
     // MARK: - Subviews
 
     private var titleField: some View {
-        Group {
-            if isFollowUpEntry {
-                // NON-EDITABLE follow-up question in Recoleta font
-                Text(title)
-                    .font(.custom("Recoleta-Black", size: 28))
-                    .foregroundStyle(PrimaryScale.primary600)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
-            } else {
-                // EDITABLE title field for regular entries
-                TextField("", text: $title, axis: .vertical)
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(theme.foreground)
-                    .focused($focusedField, equals: .title)
-                    .textInputAutocapitalization(.words)
-                    .submitLabel(.next)
-                    .onSubmit {
-                        focusedField = .body
-                    }
-                    .placeholder(when: title.isEmpty) {
-                        Text("Add a title...")
-                            .font(.system(size: 32, weight: .bold))
-                            .foregroundStyle(theme.mutedForeground.opacity(0.4))
-                    }
+        TextField("", text: $title, axis: .vertical)
+            .font(.system(size: 32, weight: .bold))
+            .foregroundStyle(theme.foreground)
+            .focused($focusedField, equals: .title)
+            .textInputAutocapitalization(.words)
+            .submitLabel(.next)
+            .onSubmit {
+                focusedField = .body
             }
-        }
+            .placeholder(when: title.isEmpty) {
+                Text("Add a title...")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(theme.mutedForeground.opacity(0.4))
+            }
     }
     
     private var bodyField: some View {
@@ -164,10 +127,6 @@ public struct AddEntryView: View {
     
     private var saveButton: some View {
         Button {
-            print("🟡🟡🟡 SAVE BUTTON TAPPED! 🟡🟡🟡")
-            print("   Text length: \(text.count)")
-            print("   Trimmed length: \(text.trimmingCharacters(in: .whitespacesAndNewlines).count)")
-            print("   Button disabled: \(isSaving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)")
             save()
         } label: {
             if isSaving {
@@ -185,13 +144,8 @@ public struct AddEntryView: View {
 
     private func setupInitialFocus() {
         // Focus immediately for instant writing experience
-        if isFollowUpEntry {
-            // For follow-ups, always focus body (question is non-editable)
-            focusedField = .body
-        } else {
-            // For regular entries, focus title if empty
-            focusedField = title.isEmpty ? .title : .body
-        }
+        // Focus title if empty, otherwise focus body
+        focusedField = title.isEmpty ? .title : .body
     }
 
     private func save() {
@@ -203,16 +157,8 @@ public struct AddEntryView: View {
         isSaving = true
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
-        // Debug logging
-        print("💾 SAVE BUTTON PRESSED")
-        print("   - State: \(state)")
-        print("   - QuestionId: \(questionId?.uuidString ?? "nil")")
-        print("   - Title: \(trimmedTitle)")
+        onSave(trimmedTitle, trimmedText)
 
-        // Pass questionId to save callback
-        onSave(trimmedTitle, trimmedText, questionId)
-
-        print("✅ SAVE CALLBACK COMPLETED")
         isSaving = false
     }
 }
@@ -221,9 +167,7 @@ public struct AddEntryView: View {
 
 #Preview("Create Entry") {
     NavigationStack {
-        AddEntryView(state: .create) { title, text, questionId in
-            print("Created: \(title) - \(text)")
-        }
+        AddEntryView(state: .create) { _, _ in }
     }
     .useTheme()
     .useTypography()
@@ -231,22 +175,7 @@ public struct AddEntryView: View {
 
 #Preview("Edit Entry") {
     NavigationStack {
-        AddEntryView(state: .edit(Entry.sampleEntries[0])) { title, text, questionId in
-            print("Updated: \(title) - \(text)")
-        }
-    }
-    .useTheme()
-    .useTypography()
-}
-
-#Preview("Follow-Up Question") {
-    NavigationStack {
-        AddEntryView(state: .followUp(
-            questionText: "What strategies help you manage stress effectively?",
-            questionId: UUID()
-        )) { title, text, questionId in
-            print("Answered follow-up: \(questionId?.uuidString ?? "nil")")
-        }
+        AddEntryView(state: .edit(Entry.sampleEntries[0])) { _, _ in }
     }
     .useTheme()
     .useTypography()
@@ -254,9 +183,7 @@ public struct AddEntryView: View {
 
 #Preview("Create Entry • Dark") {
     NavigationStack {
-        AddEntryView(state: .create) { title, text, questionId in
-            print("Created: \(title) - \(text)")
-        }
+        AddEntryView(state: .create) { _, _ in }
     }
     .useTheme()
     .useTypography()
