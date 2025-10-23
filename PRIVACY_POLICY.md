@@ -90,7 +90,7 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 If you have questions about this Privacy Policy or your data, contact us at:
 
-**Email**: sebastian.mendo@example.com
+**Email**: support@sebastianmendo.com
 **Support**: In-app Settings > About > Support
 
 ## Your Consent

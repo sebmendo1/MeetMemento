@@ -283,7 +283,7 @@ public struct AboutSettingsView: View {
     }
 
     private func openContactSupport() {
-        let email = "support@meetmemento.app"
+        let email = "support@sebastianmendo.com"
         let subject = "MeetMemento Support Request"
         let body = """
 

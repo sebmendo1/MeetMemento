@@ -162,7 +162,7 @@ MeetMemento integrates with third-party services subject to their own terms:
 
 Questions about these Terms? Contact us:
 
-**Email**: sebastian.mendo@example.com
+**Email**: support@sebastianmendo.com
 **Support**: In-app Settings > About > Support
 
 ## Acknowledgment
