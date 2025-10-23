@@ -1,0 +1,94 @@
+===== COPY EVERYTHING BELOW THIS LINE FOR CLAUDE CODE TERMINAL =====
+
+I need you to systematically identify and delete deprecated files from the MeetMemento codebase.
+
+DEFINITION OF DEPRECATED FILE:
+A file is deprecated if it has ZERO references from:
+- Other Swift files (no imports, no instantiation, no method calls)
+- Edge functions or backend services
+- Database queries or migrations
+- Runtime usage (dynamic loading, string references)
+- Xcode project configuration
+
+SCOPE:
+Analyze all files added/modified in commit 622e5c9 (Memento-v1.1 branch), specifically:
+- Swift files in MeetMemento/Views/Onboarding/
+- Swift files in MeetMemento/Components/
+- Swift files in MeetMemento/Services/
+- Swift files in MeetMemento/Models/
+- Edge functions in supabase/functions/
+
+EXCLUDE FROM DELETION:
+- Database migrations (never delete applied migrations)
+- Configuration files (.xcconfig, Info.plist, Package.swift)
+- Cron jobs / scheduled tasks (e.g., weekly-question-generator)
+- Test files
+- Documentation
+
+TASK PHASES:
+
+PHASE 1 - ANALYSIS (DO THIS FIRST):
+For each file in scope, use grep to find ALL references:
+1. Search for class/struct/enum name in all .swift files
+2. Search for filename (without extension) in all code
+3. Search for edge function names in Swift code
+4. Check for any dynamic references (string literals)
+
+Create a report with 3 categories:
+- SAFE TO DELETE: Zero references confirmed
+- REVIEW REQUIRED: Ambiguous, may have indirect references
+- KEEP: Active references found
+
+Format the report as:
+```
+SAFE TO DELETE (X files, ~Y lines):
+1. path/to/file.swift (N lines)
+   - Reason: [why deprecated]
+   - References found: NONE
+   - Dependencies: [other deprecated files it references]
+
+REVIEW REQUIRED (Z files):
+[list with explanations]
+
+KEEP (W files):
+[list with reasons]
+```
+
+PHASE 2 - DELETION PLAN (WAIT FOR MY APPROVAL):
+After Phase 1 report is approved:
+1. Group files into logical batches (by feature)
+2. Determine deletion order (delete dependents before dependencies)
+3. Create git commands for each batch
+4. Present plan for approval
+
+PHASE 3 - EXECUTION (ONLY AFTER PLAN APPROVAL):
+1. Create backup branch: git checkout -b backup/pre-cleanup-$(date +%Y%m%d)
+2. Execute deletions using git rm
+3. Commit each batch with descriptive messages
+4. Verify app builds after each batch
+5. Create summary commit
+
+SEARCH COMMANDS TO USE:
+
+For Swift class/struct references:
+grep -r "ThemesIdentifiedView" MeetMemento/ --include="*.swift" | grep -v "^MeetMemento/Views/Onboarding/ThemesIdentifiedView.swift"
+
+For edge function invocations:
+grep -r "new-user-insights" MeetMemento/ --include="*.swift"
+
+For model/type usage:
+grep -r "IdentifiedTheme\|ThemeAnalysisResponse" MeetMemento/ --include="*.swift"
+
+FILES SUSPECTED TO BE DEPRECATED (from previous analysis):
+1. MeetMemento/Views/Onboarding/ThemesIdentifiedView.swift
+2. MeetMemento/Components/ThemeCardFullScreen.swift
+3. MeetMemento/Components/QuestionCounterView.swift
+4. MeetMemento/Services/ThemeAnalysisService.swift
+5. MeetMemento/Models/ThemeAnalysis.swift
+6. supabase/functions/new-user-insights/index.ts
+7. supabase/functions/new-user-insights/types.ts
+
+START WITH PHASE 1 ANALYSIS ONLY.
+Present the report and wait for my approval before proceeding to Phase 2.
+
+===== END OF PROMPT =====
