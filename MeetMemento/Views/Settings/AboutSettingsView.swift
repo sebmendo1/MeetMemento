@@ -208,7 +208,7 @@ public struct AboutSettingsView: View {
                     subtitle: nil,
                     showChevron: true,
                     action: {
-                        openURL("https://meetmemento.app/terms")
+                        openURL("https://sebmendo1.github.io/MeetMemento/terms.html")
                     }
                 )
 
@@ -223,7 +223,7 @@ public struct AboutSettingsView: View {
                     subtitle: nil,
                     showChevron: true,
                     action: {
-                        openURL("https://meetmemento.app/privacy")
+                        openURL("https://sebmendo1.github.io/MeetMemento/privacy.html")
                     }
                 )
             }
