@@ -64,7 +64,9 @@ class AuthViewModel: ObservableObject {
 
     init() {
         // NO async work in init - prevents SIGKILL crashes
+        #if DEBUG
         print("🟢 AuthViewModel init() called")
+        #endif
 
         // Immediately restore cached auth state for instant UI update
         restoreCachedAuthState()
@@ -104,10 +106,14 @@ class AuthViewModel: ObservableObject {
             isAuthenticated = true
             hasCompletedOnboarding = hasOnboardingCached
 
+            #if DEBUG
             print("🟢 Restored cached auth state: authenticated=\(isAuthenticatedCached), onboarding=\(hasOnboardingCached)")
+            #endif
             AppLogger.log("✅ Restored cached auth state - skipping loading screen", category: AppLogger.general)
         } else {
+            #if DEBUG
             print("🟢 No cached auth state - user not authenticated")
+            #endif
         }
     }
 
@@ -115,23 +121,33 @@ class AuthViewModel: ObservableObject {
     private func cacheAuthState() {
         UserDefaults.standard.set(isAuthenticated, forKey: cachedAuthStateKey)
         UserDefaults.standard.set(hasCompletedOnboarding, forKey: cachedOnboardingKey)
+        #if DEBUG
         print("🟢 Cached auth state: authenticated=\(isAuthenticated), onboarding=\(hasCompletedOnboarding)")
+        #endif
     }
 
     /// Clears cached auth state (call on sign out)
     private func clearCachedAuthState() {
         UserDefaults.standard.removeObject(forKey: cachedAuthStateKey)
         UserDefaults.standard.removeObject(forKey: cachedOnboardingKey)
+        #if DEBUG
         print("🟢 Cleared cached auth state")
+        #endif
     }
 
     /// Initialize auth state after UI renders
     func initializeAuth() async {
+        #if DEBUG
         print("🟢 AuthViewModel.initializeAuth() called")
+        #endif
         await checkAuthState()
+        #if DEBUG
         print("🟢 AuthViewModel.checkAuthState() completed")
+        #endif
         await setupAuthObserver()
+        #if DEBUG
         print("🟢 AuthViewModel.setupAuthObserver() completed")
+        #endif
     }
     
     private func setupAuthObserver() async {
@@ -145,10 +161,14 @@ class AuthViewModel: ObservableObject {
     // MARK: - Auth State Management
     
     func checkAuthState() async {
+        #if DEBUG
         print("🟢 checkAuthState() START")
+        #endif
         // Prevent duplicate simultaneous checks with async-safe actor guard
         guard await checkGuard.beginCheck() else {
+            #if DEBUG
             print("🟢 checkAuthState() SKIP - already in progress")
+            #endif
             return
         }
         defer { Task { await checkGuard.endCheck() } }
@@ -160,13 +180,17 @@ class AuthViewModel: ObservableObject {
             isLoading = true
         }
 
+        #if DEBUG
         print("🟢 checkAuthState() About to call getCurrentUser()...")
+        #endif
         do {
             // Add timeout to prevent indefinite hanging (5s for OAuth token exchange + network latency)
             currentUser = try await withTimeout(seconds: 5) {
                 try await SupabaseService.shared.getCurrentUser()
             }
+            #if DEBUG
             print("🟢 checkAuthState() getCurrentUser() returned")
+            #endif
 
             if let user = currentUser {
                 // User is authenticated - check onboarding status directly from metadata (synchronous)
@@ -211,7 +235,9 @@ class AuthViewModel: ObservableObject {
         }
 
         isLoading = false
+        #if DEBUG
         print("🟢 checkAuthState() END - auth state: \(authState)")
+        #endif
     }
 
     /// Check if user has completed onboarding (legacy - now handled atomically in checkAuthState)

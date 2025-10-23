@@ -3,11 +3,12 @@
 //  MeetMemento
 //
 //  A simple test view to verify Supabase connection
-//  Delete this file once you've confirmed everything works!
+//  Only available in DEBUG builds
 //
 
 import SwiftUI
 
+#if DEBUG
 struct SupabaseTestView: View {
     @State private var status: ConnectionStatus = .checking
     @State private var message: String = "Checking connection..."
@@ -139,10 +140,13 @@ struct SupabaseTestView: View {
         }
     }
 }
+#endif
 
+#if DEBUG
 #Preview {
     SupabaseTestView()
         .useTheme()
         .useTypography()
 }
+#endif
 

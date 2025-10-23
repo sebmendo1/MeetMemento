@@ -133,14 +133,20 @@ class InsightViewModel: ObservableObject {
         }
 
         // STEP 1: Verify authentication first
+        #if DEBUG
         print("🔐 Checking authentication...")
+        #endif
         do {
             let session = try await client.auth.session
+            #if DEBUG
             print("✅ Authenticated as user: \(session.user.id.uuidString.prefix(8))...")
             print("   Access token length: \(session.accessToken.count) chars")
             print("   Token expires at: \(session.expiresAt ?? 0)")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ Authentication check failed: \(error)")
+            #endif
             throw InsightsError.authenticationFailed
         }
 
@@ -157,11 +163,15 @@ class InsightViewModel: ObservableObject {
 
         let requestBody = GenerateInsightsRequest(entries: journalEntries)
 
+        #if DEBUG
         print("🔄 Calling generate-insights function with \(entries.count) entries")
+        #endif
         AppLogger.log("🔄 Calling generate-insights function with \(entries.count) entries", category: AppLogger.network)
 
         // Call edge function
+        #if DEBUG
         print("🌐 About to call edge function...")
+        #endif
 
         // Get the session for authentication
         let session = try await client.auth.session
@@ -181,9 +191,11 @@ class InsightViewModel: ObservableObject {
         encoder.keyEncodingStrategy = .convertToSnakeCase
         request.httpBody = try encoder.encode(requestBody)
 
+        #if DEBUG
         print("   Request URL: \(functionUrl)")
         print("   Request headers: Authorization=Bearer \(accessToken.prefix(20))..., apikey=\(SupabaseConfig.anonKey.prefix(20))...")
         print("   Request body size: \(request.httpBody?.count ?? 0) bytes")
+        #endif
 
         let responseData: Data
         let httpResponse: HTTPURLResponse
@@ -191,13 +203,16 @@ class InsightViewModel: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
 
             guard let httpResp = response as? HTTPURLResponse else {
+                #if DEBUG
                 print("❌ Response is not HTTPURLResponse")
+                #endif
                 throw InsightsError.networkError("Invalid response type")
             }
 
             httpResponse = httpResp
             responseData = data
 
+            #if DEBUG
             print("✅ HTTP Response received:")
             print("   Status code: \(httpResponse.statusCode)")
             print("   Headers: \(httpResponse.allHeaderFields)")
@@ -207,34 +222,45 @@ class InsightViewModel: ObservableObject {
             if let rawString = String(data: data, encoding: .utf8) {
                 print("   Raw response: \(rawString.prefix(1000))")
             }
+            #endif
 
             // Check if it's an error status code
             if httpResponse.statusCode >= 400 {
+                #if DEBUG
                 print("❌ HTTP error status code: \(httpResponse.statusCode)")
                 if let errorString = String(data: data, encoding: .utf8) {
                     print("   Error response: \(errorString)")
                 }
+                #endif
                 throw InsightsError.serverError("HTTP \(httpResponse.statusCode)", code: "\(httpResponse.statusCode)")
             }
         } catch {
+            #if DEBUG
             print("❌ HTTP request failed with error: \(error)")
             print("❌ Error type: \(type(of: error))")
             print("❌ Error description: \(error.localizedDescription)")
+            #endif
             throw InsightsError.networkError("Failed to call edge function: \(error.localizedDescription)")
         }
 
         // Response data is already logged above, now decode it
         var data: Data = responseData
+        #if DEBUG
         print("📦 Processing response data...")
+        #endif
         AppLogger.log("📦 Processing response data", category: AppLogger.network)
 
         // Check if response is double-encoded (string containing JSON)
         if let rawJSON = String(data: data, encoding: .utf8) {
+            #if DEBUG
             print("📦 Raw JSON type check...")
+            #endif
 
             // Check if response is DOUBLE-ENCODED (string containing JSON)
             if rawJSON.hasPrefix("\"") && rawJSON.hasSuffix("\"") {
+                #if DEBUG
                 print("⚠️ Response appears to be string-encoded JSON - unwrapping...")
+                #endif
                 AppLogger.log("⚠️ Response appears to be string-encoded JSON - unwrapping...", category: AppLogger.network)
 
                 // Remove outer quotes and unescape
@@ -246,49 +272,68 @@ class InsightViewModel: ObservableObject {
                 unescaped = unescaped.replacingOccurrences(of: "\\t", with: "\t")
                 unescaped = unescaped.replacingOccurrences(of: "\\\\", with: "\\")
 
+                #if DEBUG
                 print("📦 Unwrapped JSON (first 500 chars): \(unescaped.prefix(500))")
+                #endif
                 AppLogger.log("📦 Unwrapped JSON: \(unescaped.prefix(500))", category: AppLogger.network)
 
                 // Replace data with unwrapped version
                 if let unwrappedData = unescaped.data(using: .utf8) {
                     data = unwrappedData
+                    #if DEBUG
                     print("✅ Successfully created unwrapped data: \(data.count) bytes")
+                    #endif
                 }
             } else {
+                #if DEBUG
                 print("ℹ️ Response is NOT double-encoded, using as-is")
+                #endif
             }
         } else {
+            #if DEBUG
             print("❌ Could not convert response data to UTF-8 string")
+            #endif
         }
 
         // Decode response
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
+        #if DEBUG
         print("🔄 Attempting to decode JSON with \(data.count) bytes...")
+        #endif
         AppLogger.log("🔄 Attempting to decode JSON...", category: AppLogger.network)
 
         do {
             let insights = try decoder.decode(JournalInsights.self, from: data)
+            #if DEBUG
             print("✅ Successfully decoded insights: \(insights.themes.count) themes")
+            #endif
             AppLogger.log("✅ Successfully decoded insights", category: AppLogger.network)
             return insights
         } catch {
+            #if DEBUG
             print("❌ Decoding error: \(error)")
             print("❌ Error localized description: \(error.localizedDescription)")
+            #endif
             AppLogger.log("❌ Decoding error: \(error)", category: AppLogger.network, type: .error)
 
             // Try to decode error response
             if let errorResponse = try? decoder.decode(InsightsErrorResponse.self, from: data) {
+                #if DEBUG
                 print("🔴 Server error response: \(errorResponse.error)")
+                #endif
                 throw InsightsError.serverError(errorResponse.error, code: errorResponse.code)
             }
 
             // Log detailed decoding error
             if let decodingError = error as? DecodingError {
+                #if DEBUG
                 print("❌ DecodingError details: \(decodingError)")
+                #endif
                 AppLogger.log("❌ Decoding error details: \(decodingError)", category: AppLogger.network, type: .error)
 
+                #if DEBUG
                 // Print more specific info
                 switch decodingError {
                 case .keyNotFound(let key, let context):
@@ -302,6 +347,7 @@ class InsightViewModel: ObservableObject {
                 @unknown default:
                     print("❌ Unknown decoding error")
                 }
+                #endif
             }
 
             throw InsightsError.decodingFailed(error.localizedDescription)

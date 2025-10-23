@@ -16,17 +16,22 @@ class SupabaseService {
 
     private init() {
         // Don't initialize client here - do it lazily on first use
+        #if DEBUG
         print("🔵 SupabaseService init() called")
+        #endif
     }
 
     /// Lazily initialize the Supabase client on first use
     private func ensureClientInitialized() {
         guard !isInitialized else {
+            #if DEBUG
             print("🔵 SupabaseService: Already initialized")
+            #endif
             return
         }
         isInitialized = true
 
+        #if DEBUG
         print("🔵 SupabaseService: Initializing client...")
 
         // Configure your Supabase client
@@ -34,27 +39,36 @@ class SupabaseService {
         print("🔵 SupabaseService: Checking config...")
         print("   URL: \(SupabaseConfig.url)")
         print("   Has anon key: \(!SupabaseConfig.anonKey.isEmpty)")
+        #endif
 
         guard let url = URL(string: SupabaseConfig.url),
               !SupabaseConfig.anonKey.isEmpty,
               SupabaseConfig.anonKey != "YOUR_SUPABASE_ANON_KEY" else {
+            #if DEBUG
             print("❌ Supabase not configured properly")
+            #endif
             AppLogger.log("⚠️ Supabase not configured. Please update SupabaseConfig.swift",
                          category: AppLogger.network,
                          type: .error)
             return
         }
 
+        #if DEBUG
         print("🔵 SupabaseService: Config valid, creating SupabaseClient...")
+        #endif
         do {
             client = SupabaseClient(
                 supabaseURL: url,
                 supabaseKey: SupabaseConfig.anonKey
             )
+            #if DEBUG
             print("✅ Supabase client created successfully")
+            #endif
             AppLogger.log("✅ Supabase client initialized", category: AppLogger.network)
         } catch {
+            #if DEBUG
             print("❌ SupabaseClient creation failed: \(error)")
+            #endif
             AppLogger.log("❌ SupabaseClient creation failed: \(error.localizedDescription)",
                          category: AppLogger.network,
                          type: .error)
@@ -77,39 +91,57 @@ class SupabaseService {
     }
     
     func getCurrentUser() async throws -> Supabase.User? {
+        #if DEBUG
         print("🔵 SupabaseService.getCurrentUser() called")
+        #endif
 
         do {
             ensureClientInitialized()
+            #if DEBUG
             print("🔵 getCurrentUser: Client initialized")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ getCurrentUser: Client initialization failed - \(error)")
+            #endif
             throw SupabaseServiceError.clientNotConfigured
         }
 
         guard let client = client else {
+            #if DEBUG
             print("⚠️ getCurrentUser: Client is nil after initialization")
+            #endif
             throw SupabaseServiceError.clientNotConfigured
         }
 
+        #if DEBUG
         print("🔵 getCurrentUser: Fetching session...")
+        #endif
         // Use proper async API instead of potentially synchronous .session property
         do {
+            #if DEBUG
             print("🔵 getCurrentUser: About to call client.auth.session...")
+            #endif
             let session = try await client.auth.session
+            #if DEBUG
             print("✅ getCurrentUser: Got session, user = \(session.user.email ?? "unknown")")
+            #endif
             return session.user
         } catch let error as NSError {
+            #if DEBUG
             print("⚠️ getCurrentUser: Session fetch error")
             print("   Domain: \(error.domain)")
             print("   Code: \(error.code)")
             print("   Description: \(error.localizedDescription)")
             print("   User Info: \(error.userInfo)")
+            #endif
             // Don't throw - return nil for "no session" case
             return nil
         } catch {
+            #if DEBUG
             print("⚠️ getCurrentUser: Unknown error type - \(type(of: error))")
             print("   Error: \(error)")
+            #endif
             return nil
         }
     }
@@ -246,14 +278,18 @@ class SupabaseService {
     /// - Parameter limit: Maximum number of entries to fetch (default: 50 for initial load)
     func fetchEntries(limit: Int = 50) async throws -> [Entry] {
         guard let client = client else {
+            #if DEBUG
             print("❌ Supabase client not configured")
+            #endif
             throw SupabaseServiceError.clientNotConfigured
         }
-        
+
         // Check for cancellation before starting
         try Task.checkCancellation()
-        
+
+        #if DEBUG
         print("🔄 Fetching entries from Supabase (limit: \(limit))")
+        #endif
         
         // First, let's test if the table exists and is accessible
         do {
@@ -263,10 +299,11 @@ class SupabaseService {
                 .select("*")
                 .limit(5)
                 .execute()
-            
+
+            #if DEBUG
             print("✅ Raw Supabase response: \(rawResponse)")
             print("✅ Response data: \(rawResponse.data)")
-            
+
             // Try to decode as JSON to see the structure
             do {
                 let jsonObject = try JSONSerialization.jsonObject(with: rawResponse.data, options: [])
@@ -274,6 +311,7 @@ class SupabaseService {
             } catch {
                 print("❌ JSON parsing failed: \(error)")
             }
+            #endif
             
             // Now try to decode as Entry objects
             let response: [Entry] = try await withTimeout(seconds: 5) {
@@ -285,29 +323,37 @@ class SupabaseService {
                     .execute()
                     .value
             }
-            
+
+            #if DEBUG
             print("✅ Decoded entries: \(response)")
-            
-            AppLogger.log("✅ Fetched \(response.count) entries from Supabase (limit: \(limit))", 
+            #endif
+
+            AppLogger.log("✅ Fetched \(response.count) entries from Supabase (limit: \(limit))",
                          category: AppLogger.network)
             return response
-            
+
         } catch {
+            #if DEBUG
             print("❌ Detailed fetch error: \(error)")
             print("❌ Error type: \(type(of: error))")
             print("❌ Error description: \(error.localizedDescription)")
-            
+            #endif
+
             // Check if it's a table not found error
             let errorString = error.localizedDescription.lowercased()
             if errorString.contains("relation") && errorString.contains("does not exist") {
+                #if DEBUG
                 print("❌ Table 'entries' does not exist in Supabase")
+                #endif
                 throw SupabaseServiceError.clientNotConfigured // Using this as a generic error for now
             }
-            
+
             // Check if it's a decoding error
             if errorString.contains("data couldn't be read") || errorString.contains("missing") {
+                #if DEBUG
                 print("❌ Data decoding error - likely schema mismatch")
                 print("❌ Expected fields: id, user_id, title, text, created_at, updated_at, is_follow_up")
+                #endif
             }
             
             throw error
@@ -374,7 +420,9 @@ class SupabaseService {
             // If insertion fails due to missing column, try without is_follow_up
             let errorString = error.localizedDescription.lowercased()
             if errorString.contains("is_follow_up") && errorString.contains("column") {
+                #if DEBUG
                 print("⚠️ is_follow_up column missing, creating entry without it")
+                #endif
                 
                 // Create entry without is_follow_up field
                 let entryWithoutFollowUp = [
@@ -428,7 +476,9 @@ class SupabaseService {
             // If update fails due to missing column, try without is_follow_up
             let errorString = error.localizedDescription.lowercased()
             if errorString.contains("is_follow_up") && errorString.contains("column") {
+                #if DEBUG
                 print("⚠️ is_follow_up column missing, updating entry without it")
+                #endif
                 
                 // Update entry without is_follow_up field
                 let entryWithoutFollowUp = [

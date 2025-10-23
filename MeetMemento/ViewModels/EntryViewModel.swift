@@ -46,9 +46,11 @@ class EntryViewModel: ObservableObject {
    
    /// Loads entries once when view appears
    func loadEntriesIfNeeded() async {
-       guard !hasLoadedOnce && !isLoadingInProgress else { 
+       guard !hasLoadedOnce && !isLoadingInProgress else {
+           #if DEBUG
            print("🔄 Entries already loaded or loading in progress")
-           return 
+           #endif
+           return
        }
        hasLoadedOnce = true
        await loadEntries()
@@ -67,7 +69,9 @@ class EntryViewModel: ObservableObject {
     func loadEntries() async {
         // Prevent concurrent load operations
         guard !isLoadingInProgress else {
+            #if DEBUG
             print("🔄 Load already in progress, skipping duplicate request")
+            #endif
             return
         }
 
@@ -75,51 +79,69 @@ class EntryViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
+        #if DEBUG
         print("🔄 Starting to load entries from Supabase...")
+        #endif
 
         do {
             // Check authentication first with timeout to prevent hanging (1s for local check)
             let currentUser = try await withTimeout(seconds: 1) {
                 try await SupabaseService.shared.getCurrentUser()
             }
+            #if DEBUG
             print("✅ User authenticated: \(currentUser?.email ?? "Unknown")")
+            #endif
 
             // Fetch entries with timeout (2s for network operation)
             entries = try await withTimeout(seconds: 2) {
                 try await self.supabaseService.fetchEntries()
             }
+            #if DEBUG
             print("✅ Loaded \(entries.count) entries from Supabase")
+            #endif
 
             // Regenerate export after loading entries
             scheduleExportRegeneration()
         } catch {
             // Handle different types of errors appropriately
             let errorDescription = error.localizedDescription.lowercased()
+            #if DEBUG
             print("❌ Detailed error: \(error)")
             print("❌ Error type: \(type(of: error))")
-            
+            #endif
+
             // Check for cancellation errors (both string matching and type checking)
             if errorDescription.contains("cancelled") || error is CancellationError {
                 // Cancelled errors are usually from duplicate requests - don't show to user
+                #if DEBUG
                 print("🔄 Load cancelled (likely duplicate request): \(error)")
+                #endif
                 errorMessage = nil // Clear any previous error message
             } else if errorDescription.contains("timeout") {
                 // Timeout errors - show user-friendly message
                 errorMessage = "Request timed out. Please check your connection and try again."
+                #if DEBUG
                 print("⏰ Load timeout: \(error)")
+                #endif
             } else if errorDescription.contains("unauthorized") || errorDescription.contains("401") {
                 // Authentication errors
                 errorMessage = "Authentication required. Please sign in again."
+                #if DEBUG
                 print("🔐 Auth error: \(error)")
+                #endif
             } else if errorDescription.contains("not found") || errorDescription.contains("404") {
                 // Table not found or user has no entries
+                #if DEBUG
                 print("📭 No entries found or table doesn't exist: \(error)")
+                #endif
                 entries = [] // Clear entries for fresh start
                 errorMessage = nil // Don't show error for empty state
             } else {
                 // Other errors - show the actual error
                 errorMessage = "Failed to load entries: \(error.localizedDescription)"
+                #if DEBUG
                 print("❌ Load error: \(error)")
+                #endif
             }
             // Keep existing local entries on error (graceful degradation)
         }
@@ -140,12 +162,14 @@ class EntryViewModel: ObservableObject {
         
         // Add to UI immediately (optimistic update)
         entries.insert(optimisticEntry, at: 0)
+        #if DEBUG
         print("✅ Optimistically created entry: \(optimisticEntry.id)")
-        
+        #endif
+
         // Save to Supabase in background
         Task {
             errorMessage = nil
-            
+
             do {
                 let savedEntry = try await supabaseService.createEntry(title: title, text: text)
 
@@ -154,9 +178,11 @@ class EntryViewModel: ObservableObject {
                     entries[index] = savedEntry
                 }
 
+                #if DEBUG
                 print("✅ Saved entry to Supabase: \(savedEntry.id)")
                 print("   Title: \(title.isEmpty ? "(Untitled)" : title)")
                 print("   Text: \(text.prefix(50))...")
+                #endif
 
                 // Regenerate export after creation
                 scheduleExportRegeneration()
@@ -164,7 +190,9 @@ class EntryViewModel: ObservableObject {
                 // Remove optimistic entry on failure
                 entries.removeAll(where: { $0.id == optimisticEntry.id })
                 errorMessage = "Failed to create entry: \(error.localizedDescription)"
+                #if DEBUG
                 print("❌ Create error: \(error)")
+                #endif
             }
         }
     }
@@ -184,13 +212,17 @@ class EntryViewModel: ObservableObject {
                     entries[index] = result
                 }
 
+                #if DEBUG
                 print("✅ Updated entry: \(result.id)")
+                #endif
 
                 // Regenerate export after update
                 scheduleExportRegeneration()
             } catch {
                 errorMessage = "Failed to update entry: \(error.localizedDescription)"
+                #if DEBUG
                 print("❌ Update error: \(error)")
+                #endif
             }
         }
     }
@@ -208,13 +240,17 @@ class EntryViewModel: ObservableObject {
                 // Remove from local array
                 entries.removeAll(where: { $0.id == id })
 
+                #if DEBUG
                 print("🗑️ Deleted entry: \(id)")
+                #endif
 
                 // Regenerate export after deletion
                 scheduleExportRegeneration()
             } catch {
                 errorMessage = "Failed to delete entry: \(error.localizedDescription)"
+                #if DEBUG
                 print("❌ Delete error: \(error)")
+                #endif
             }
         }
     }
@@ -250,10 +286,14 @@ class EntryViewModel: ObservableObject {
                 self.lastExportDate = Date()
             }
 
+            #if DEBUG
             print("📦 Export regenerated: \(entries.count) entries")
             print("   Saved to: \(fileURL.lastPathComponent)")
+            #endif
         } catch {
+            #if DEBUG
             print("⚠️ Failed to regenerate export: \(error.localizedDescription)")
+            #endif
             // Don't show error to user - export is background operation
         }
     }

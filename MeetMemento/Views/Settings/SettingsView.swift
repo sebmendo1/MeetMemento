@@ -16,8 +16,10 @@ struct SettingsView: View {
     @State private var isLoggingOut = false
     @State private var isDeletingAccount = false
     @State private var deleteAccountError: String?
+    #if DEBUG
     @State private var testResult = ""
     @State private var showSupabaseTest = false
+    #endif
 
     var body: some View {
         ScrollView {
@@ -31,8 +33,10 @@ struct SettingsView: View {
                 // About Section
                 aboutSection
 
+                #if DEBUG
                 // Development Section
                 developmentSection
+                #endif
 
                 // Danger Zone Section
                 dangerZoneSection
@@ -82,6 +86,7 @@ struct SettingsView: View {
                 Text("⚠️ WARNING: This will permanently delete your account and all journal entries. This action cannot be undone.\n\nAre you absolutely sure you want to continue?")
             }
         )
+        #if DEBUG
         .sheet(isPresented: $showSupabaseTest) {
             NavigationStack {
                 SupabaseTestView()
@@ -89,6 +94,7 @@ struct SettingsView: View {
                     .useTypography()
             }
         }
+        #endif
     }
 
     // MARK: - Sections
@@ -203,6 +209,7 @@ struct SettingsView: View {
         }
     }
 
+    #if DEBUG
     private var developmentSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Section header
@@ -241,6 +248,7 @@ struct SettingsView: View {
             .cornerRadius(12)
         }
     }
+    #endif
 
     private var dangerZoneSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -337,6 +345,7 @@ struct SettingsView: View {
         }
     }
 
+    #if DEBUG
     private func testEntryLoading() {
         testResult = "Testing..."
 
@@ -370,6 +379,7 @@ struct SettingsView: View {
             }
         }
     }
+    #endif
 }
 
 #Preview {

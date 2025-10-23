@@ -12,7 +12,9 @@ struct MeetMementoApp: App {
     @StateObject private var authViewModel = AuthViewModel()
 
     init() {
+        #if DEBUG
         print("🔴 MeetMementoApp init() called")
+        #endif
     }
 
     var body: some Scene {
@@ -23,7 +25,9 @@ struct MeetMementoApp: App {
                     ContentView()
                         .environmentObject(authViewModel)
                         .onAppear {
+                            #if DEBUG
                             print("🔴 ContentView appeared")
+                            #endif
                         }
                 } else {
                     // Not authenticated OR incomplete onboarding - show WelcomeView
@@ -33,18 +37,24 @@ struct MeetMementoApp: App {
                         .useTypography()
                         .environmentObject(authViewModel)
                         .onAppear {
+                            #if DEBUG
                             print("🔴 WelcomeView appeared")
                             print("🔴 Auth state: isAuthenticated=\(authViewModel.isAuthenticated), hasCompletedOnboarding=\(authViewModel.hasCompletedOnboarding)")
+                            #endif
                         }
                 }
             }
             .task {
+                #if DEBUG
                 print("🔴 .task block started")
+                #endif
                 // Initialize auth AFTER UI renders to prevent SIGKILL crashes
                 // Note: checkAuthState() already checks onboarding status atomically,
                 // no need for separate checkOnboardingStatus() call
                 await authViewModel.initializeAuth()
+                #if DEBUG
                 print("🔴 .task block completed")
+                #endif
             }
             .onOpenURL { url in
                 Task { try? await AuthService.shared.handleRedirectURL(url) }
