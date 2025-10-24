@@ -56,6 +56,7 @@ struct PrimaryScale {
 /// Base colors - pure white and black
 struct BaseColors {
     static let white = Color(hex: "#FFFFFF")
+    static let offWhite = Color(hex: "#EFEFEF")
     static let black = Color(hex: "#000000")
 }
 
@@ -157,11 +158,11 @@ struct Theme {
     // MARK: - Palettes
 
     static let light = Theme(
-        background: Color(hex: "#EFEFEF"),
+        background: BaseColors.offWhite,
         foreground: GrayScale.gray900,
-        card: BaseColors.white,
+        card: BaseColors.offWhite,
         cardForeground: GrayScale.gray900,
-        popover: BaseColors.white,
+        popover: BaseColors.offWhite,
         popoverForeground: GrayScale.gray900,
         primary: PrimaryScale.primary500,
         primaryForeground: BaseColors.white,
@@ -201,7 +202,7 @@ struct Theme {
         insightsBackgroundStart: PrimaryScale.primary800,
         insightsBackgroundEnd: PrimaryScale.primary700,
 
-        sidebar: BaseColors.white,
+        sidebar: BaseColors.offWhite,
         sidebarForeground: GrayScale.gray900,
         sidebarPrimary: PrimaryScale.primary500,
         sidebarPrimaryForeground: BaseColors.white,
