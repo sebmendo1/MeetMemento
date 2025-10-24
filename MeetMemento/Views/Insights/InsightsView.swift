@@ -191,7 +191,7 @@ public struct InsightsView: View {
             }
 
             // Info text
-            Text("Insights unlock at 3, 6, 9 entries...")
+            Text("First insights unlock at 3 entries")
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.5))
 

@@ -35,7 +35,7 @@ class InsightViewModel: ObservableObject {
     /// Generates insights from journal entries
     /// - Parameter entries: Array of journal entries to analyze (max 20)
     /// - Note: The edge function handles caching automatically
-    /// - Note: Only generates when entry count is a multiple of 3 (3, 6, 9, etc.) to reduce costs
+    /// - Note: Only generates new insights when count == 3 OR (count >= 6 AND count % 3 == 0)
     func generateInsights(from entries: [Entry]) async {
         guard !entries.isEmpty else {
             errorMessage = "No entries to analyze"
@@ -43,31 +43,51 @@ class InsightViewModel: ObservableObject {
             return
         }
 
-        // COST OPTIMIZATION: Only generate insights at entry milestones (multiples of 3)
-        // This reduces API costs by ~67% while ensuring insights are meaningful
+        // COST OPTIMIZATION: Smart insight generation strategy
+        // - Show progress state only when < 3 entries
+        // - Generate insights at 3 entries (first unlock)
+        // - Generate insights at 6, 9, 12... (multiples of 3 when >= 6)
+        // - Show cached insights at all other counts (4, 5, 7, 8, 10, 11, etc.)
         let entryCount = entries.count
+
+        // Case 1: Less than 3 entries - show progress state
         if entryCount < 3 {
             errorMessage = "Write \(3 - entryCount) more \(entryCount == 2 ? "entry" : "entries") to unlock insights"
             AppLogger.log("⚠️ Not enough entries: \(entryCount)/3 required", category: AppLogger.network)
             return
         }
 
-        if entryCount % 3 != 0 {
-            let nextMilestone = ((entryCount / 3) + 1) * 3
-            let entriesNeeded = nextMilestone - entryCount
-            errorMessage = "Write \(entriesNeeded) more \(entriesNeeded == 1 ? "entry" : "entries") for updated insights (\(entryCount)/\(nextMilestone))"
-            AppLogger.log("⚠️ Waiting for milestone: \(entryCount) entries (next at \(nextMilestone))", category: AppLogger.network)
+        // Case 2: Determine if we should generate new insights or use cache
+        let shouldGenerateNewInsights: Bool
+        if entryCount == 3 {
+            // First unlock at 3 entries
+            shouldGenerateNewInsights = true
+            AppLogger.log("✅ First insights unlock: 3 entries reached", category: AppLogger.network)
+        } else if entryCount >= 6 && entryCount % 3 == 0 {
+            // Generate at multiples of 3 when >= 6 (6, 9, 12, etc.)
+            shouldGenerateNewInsights = true
+            AppLogger.log("✅ Entry milestone reached: \(entryCount) entries (multiple of 3)", category: AppLogger.network)
+        } else {
+            // Don't generate - use cached insights
+            shouldGenerateNewInsights = false
 
-            // If we have cached insights, show those instead of error
+            // If we have cached insights, show them
             if insights != nil {
                 errorMessage = nil
-                AppLogger.log("✅ Using cached insights while waiting for milestone", category: AppLogger.network)
+                AppLogger.log("💾 Using cached insights (count: \(entryCount), no new generation needed)", category: AppLogger.network)
+                return
+            } else {
+                // This shouldn't happen if insights were generated at 3, but handle gracefully
+                errorMessage = "Previous insights not found. Please pull to refresh."
+                AppLogger.log("⚠️ No cached insights found at count \(entryCount)", category: AppLogger.network)
                 return
             }
-            return
         }
 
-        AppLogger.log("✅ Entry milestone reached: \(entryCount) entries (multiple of 3)", category: AppLogger.network)
+        // If we reach here, we should generate new insights
+        guard shouldGenerateNewInsights else {
+            return
+        }
 
         // Validate entry count (edge function limits to 20)
         let entriesToAnalyze = Array(entries.prefix(20))
