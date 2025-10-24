@@ -89,7 +89,7 @@ public struct AddEntryView: View {
 
     private var titleField: some View {
         TextField("", text: $title, axis: .vertical)
-            .font(.custom("Recoleta-Bold", size: type.titleM))
+            .font(type.h3)
             .foregroundStyle(theme.foreground)
             .focused($focusedField, equals: .title)
             .textInputAutocapitalization(.words)
@@ -99,7 +99,7 @@ public struct AddEntryView: View {
             }
             .placeholder(when: title.isEmpty) {
                 Text("Add a title...")
-                    .font(.custom("Recoleta-Bold", size: type.titleM))
+                    .font(type.h3)
                     .foregroundStyle(theme.mutedForeground.opacity(0.4))
             }
     }
