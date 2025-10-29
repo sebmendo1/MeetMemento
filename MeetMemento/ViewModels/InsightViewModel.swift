@@ -29,6 +29,40 @@ class InsightViewModel: ObservableObject {
     // MARK: - Private Properties
 
     private let supabaseService = SupabaseService.shared
+    private let insightsService = InsightsService.shared
+    private let migratedFlagKey = "insightsMigratedToDatabase"
+
+    /// Tracks the entry count for which insights were last loaded
+    /// Used to prevent redundant reloads when switching tabs
+    private var lastAnalyzedEntryCount: Int = 0
+
+    // Helper function to generate user-specific cache key
+    private func cacheKey(for userId: UUID) -> String {
+        return "insights_\(userId.uuidString)"
+    }
+
+    // Real-time subscription
+    private var realtimeChannel: RealtimeChannelV2?
+    private var isRealtimeSyncEnabled = false
+
+    // MARK: - Initialization
+
+    init() {
+        // NOTE: Don't load insights in init - requires async user ID fetch
+        // Insights will be loaded in generateInsights() which is async
+        // NOTE: Don't set up real-time sync here - Supabase client may not be configured yet
+        // It will be set up lazily on first generateInsights() call
+        AppLogger.log("🔵 InsightViewModel initialized", category: AppLogger.network)
+    }
+
+    deinit {
+        // Clean up real-time subscription synchronously
+        if let channel = realtimeChannel {
+            Task { [channel] in
+                await channel.unsubscribe()
+            }
+        }
+    }
 
     // MARK: - Public Methods
 
@@ -37,18 +71,36 @@ class InsightViewModel: ObservableObject {
     /// - Note: The edge function handles caching automatically
     /// - Note: Only generates new insights when count == 3 OR (count >= 6 AND count % 3 == 0)
     func generateInsights(from entries: [Entry]) async {
+        // GUARD: Prevent duplicate calls while loading
+        guard !isLoading else {
+            AppLogger.log("⏭️ Already generating insights, skipping duplicate call", category: AppLogger.network)
+            return
+        }
+
+        // Set up real-time sync lazily on first call (after auth is likely ready)
+        setupRealtimeSyncIfNeeded()
+
+        // Perform one-time migration lazily
+        await migrateOldInsightsIfNeeded()
+
         guard !entries.isEmpty else {
             errorMessage = "No entries to analyze"
             AppLogger.log("⚠️ Cannot generate insights: no entries provided", category: AppLogger.network, type: .error)
             return
         }
 
-        // COST OPTIMIZATION: Smart insight generation strategy
-        // - Show progress state only when < 3 entries
-        // - Generate insights at 3 entries (first unlock)
-        // - Generate insights at 6, 9, 12... (multiples of 3 when >= 6)
-        // - Show cached insights at all other counts (4, 5, 7, 8, 10, 11, etc.)
         let entryCount = entries.count
+
+        // OPTIMIZATION: Skip if we already have insights for this exact entry count
+        // This prevents redundant reloads when switching tabs
+        if entryCount == lastAnalyzedEntryCount && insights != nil {
+            AppLogger.log("⏭️ Insights already loaded for \(entryCount) entries, skipping reload", category: AppLogger.network)
+            return
+        }
+
+        // COST OPTIMIZATION: Smart insight generation strategy
+        // 1. First try to load existing insights from cache/database
+        // 2. Only generate fresh insights if none found AND at a milestone
 
         // Case 1: Less than 3 entries - show progress state
         if entryCount < 3 {
@@ -57,36 +109,68 @@ class InsightViewModel: ObservableObject {
             return
         }
 
-        // Case 2: Determine if we should generate new insights or use cache
-        let shouldGenerateNewInsights: Bool
-        if entryCount == 3 {
-            // First unlock at 3 entries
-            shouldGenerateNewInsights = true
-            AppLogger.log("✅ First insights unlock: 3 entries reached", category: AppLogger.network)
-        } else if entryCount >= 6 && entryCount % 3 == 0 {
-            // Generate at multiples of 3 when >= 6 (6, 9, 12, etc.)
-            shouldGenerateNewInsights = true
-            AppLogger.log("✅ Entry milestone reached: \(entryCount) entries (multiple of 3)", category: AppLogger.network)
-        } else {
-            // Don't generate - use cached insights
-            shouldGenerateNewInsights = false
+        // Case 2: Try to load existing insights from memory/cache/database FIRST
+        // This prevents unnecessary API calls on app restart
+        if insights == nil {
+            AppLogger.log("🔍 Attempting to load insights from cache/database (count: \(entryCount))...", category: AppLogger.network)
 
-            // If we have cached insights, show them
-            if insights != nil {
-                errorMessage = nil
-                AppLogger.log("💾 Using cached insights (count: \(entryCount), no new generation needed)", category: AppLogger.network)
-                return
-            } else {
-                // This shouldn't happen if insights were generated at 3, but handle gracefully
-                errorMessage = "Previous insights not found. Please pull to refresh."
-                AppLogger.log("⚠️ No cached insights found at count \(entryCount)", category: AppLogger.network)
-                return
+            // Try UserDefaults cache (fast, offline)
+            let cachedInsights = await loadPersistedInsights()
+
+            // Try database (cloud, cross-device)
+            let dbInsights = await loadInsightsFromDatabase(forEntryCount: entryCount)
+
+            // Use whichever is most recent
+            if let cached = cachedInsights, let db = dbInsights {
+                // Both exist - use the newest
+                insights = cached.generatedAt > db.generatedAt ? cached : db
+                AppLogger.log("💾 Using \(insights?.generatedAt == cached.generatedAt ? "cached" : "database") insights (newer)", category: AppLogger.network)
+
+                // Update cache if database was newer
+                if insights?.generatedAt == db.generatedAt {
+                    await saveInsightsToCache(db)
+                }
+            } else if let cached = cachedInsights {
+                // Only cache exists
+                insights = cached
+                AppLogger.log("💾 Using cached insights (database unavailable)", category: AppLogger.network)
+            } else if let db = dbInsights {
+                // Only database exists
+                insights = db
+                await saveInsightsToCache(db)
+                AppLogger.log("☁️ Using database insights (no cache)", category: AppLogger.network)
             }
         }
 
-        // If we reach here, we should generate new insights
-        guard shouldGenerateNewInsights else {
+        // If we successfully loaded insights, use them and return
+        if insights != nil {
+            errorMessage = nil
+            self.lastAnalyzedEntryCount = entryCount
+            AppLogger.log("💾 Using existing insights (count: \(entryCount), no new generation needed)", category: AppLogger.network)
             return
+        }
+
+        // Case 3: No existing insights found - determine if we should generate fresh ones
+        let isAtMilestone = (entryCount == 3) || (entryCount >= 6 && entryCount % 3 == 0)
+
+        if !isAtMilestone {
+            // Not at a milestone - show progress message
+            let nextMilestone = ((entryCount / 3) + 1) * 3
+            let entriesNeeded = nextMilestone - entryCount
+            errorMessage = "Write \(entriesNeeded) more \(entriesNeeded == 1 ? "entry" : "entries") for new insights"
+            AppLogger.log("ℹ️ Not at milestone (\(entryCount) entries) - waiting for next milestone", category: AppLogger.network)
+            return
+        }
+
+        // We are at a milestone and no insights exist - generate fresh ones
+        let milestone = calculateMilestone(for: entryCount)
+        AppLogger.log("✅ At milestone \(milestone) with no existing insights - generating fresh insights", category: AppLogger.network)
+
+        // If we reach here, we ARE at a milestone and SHOULD generate fresh insights
+        // Clear any existing insights from memory to ensure fresh generation
+        if insights != nil {
+            AppLogger.log("🔄 Clearing existing insights from memory to force fresh generation at milestone \(entryCount)", category: AppLogger.network)
+            insights = nil
         }
 
         // Validate entry count (edge function limits to 20)
@@ -99,12 +183,43 @@ class InsightViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            // Call edge function
-            let response = try await callGenerateInsightsFunction(entries: entriesToAnalyze)
+            // Call edge function with force refresh at milestones
+            // This ensures fresh insights are generated at each milestone (3, 6, 9, 12...)
+            // and bypasses the edge function's 7-day cache
+            let response = try await callGenerateInsightsFunction(entries: entriesToAnalyze, forceRefresh: true)
+
+            // Calculate the milestone this insight represents
+            let milestone = calculateMilestone(for: entryCount)
+
+            // Create insights with milestone
+            let insightsWithMilestone = JournalInsights(
+                summary: response.summary,
+                description: response.description,
+                annotations: response.annotations,
+                themes: response.themes,
+                entriesAnalyzed: response.entriesAnalyzed,
+                entryCountMilestone: milestone,
+                generatedAt: response.generatedAt,
+                fromCache: response.fromCache,
+                cacheExpiresAt: response.cacheExpiresAt
+            )
 
             // Update state
-            self.insights = response
+            self.insights = insightsWithMilestone
             self.isFromCache = response.fromCache
+            self.lastAnalyzedEntryCount = entryCount  // Track that we've loaded insights for this count
+
+            // Save to UserDefaults for local cache (fast offline access)
+            await saveInsightsToCache(insightsWithMilestone)
+
+            // Save to Supabase database (cloud sync) - synchronously for reliability
+            do {
+                try await insightsService.saveInsights(insightsWithMilestone, for: milestone)
+                AppLogger.log("☁️ Insights synced to cloud for milestone \(milestone)", category: AppLogger.network)
+            } catch {
+                // Don't fail the whole operation if database save fails - cache still works
+                AppLogger.log("⚠️ Failed to sync insights to cloud: \(error.localizedDescription) - Using cache only", category: AppLogger.network, type: .error)
+            }
 
             // Log success
             let cacheStatus = response.fromCache ? "from cache" : "freshly generated"
@@ -127,11 +242,35 @@ class InsightViewModel: ObservableObject {
     }
 
     /// Clears current insights and error state
-    func clearInsights() {
+    /// - Parameter deleteFromDatabase: If true, also deletes from Supabase database (default: false)
+    func clearInsights(deleteFromDatabase: Bool = false) {
         insights = nil
         errorMessage = nil
         isFromCache = false
-        AppLogger.log("🗑️ Insights cleared", category: AppLogger.network)
+
+        // Clear user-specific cache
+        Task {
+            if let client = supabaseService.client,
+               let session = try? await client.auth.session {
+                let userId = session.user.id
+                let key = cacheKey(for: userId)
+                UserDefaults.standard.removeObject(forKey: key)
+                AppLogger.log("🗑️ Cleared cache for user: \(userId.uuidString.prefix(8))...", category: AppLogger.network)
+            }
+
+            // Also clear old global cache key (migration cleanup)
+            UserDefaults.standard.removeObject(forKey: "lastGeneratedInsights")
+
+            // Optionally delete from database (for complete reset)
+            if deleteFromDatabase {
+                do {
+                    try await insightsService.deleteAllInsights()
+                    AppLogger.log("☁️ Insights deleted from cloud database", category: AppLogger.network)
+                } catch {
+                    AppLogger.log("⚠️ Failed to delete insights from cloud: \(error.localizedDescription)", category: AppLogger.network, type: .error)
+                }
+            }
+        }
     }
 
     /// Checks if insights need refresh (cache older than 24 hours)
@@ -147,7 +286,8 @@ class InsightViewModel: ObservableObject {
     // MARK: - Private Methods
 
     /// Calls the generate-insights edge function
-    private func callGenerateInsightsFunction(entries: [Entry]) async throws -> JournalInsights {
+    /// - Parameter forceRefresh: If true, bypasses edge function cache and generates fresh insights
+    private func callGenerateInsightsFunction(entries: [Entry], forceRefresh: Bool = false) async throws -> JournalInsights {
         guard let client = supabaseService.client else {
             throw InsightsError.clientNotConfigured
         }
@@ -181,12 +321,12 @@ class InsightViewModel: ObservableObject {
             )
         }
 
-        let requestBody = GenerateInsightsRequest(entries: journalEntries)
+        let requestBody = GenerateInsightsRequest(entries: journalEntries, forceRefresh: forceRefresh ? true : nil)
 
         #if DEBUG
-        print("🔄 Calling generate-insights function with \(entries.count) entries")
+        print("🔄 Calling generate-insights function with \(entries.count) entries\(forceRefresh ? " (FORCE REFRESH)" : "")")
         #endif
-        AppLogger.log("🔄 Calling generate-insights function with \(entries.count) entries", category: AppLogger.network)
+        AppLogger.log("🔄 Calling generate-insights function with \(entries.count) entries\(forceRefresh ? " (FORCE REFRESH)" : "")", category: AppLogger.network)
 
         // Call edge function
         #if DEBUG
@@ -342,6 +482,13 @@ class InsightViewModel: ObservableObject {
             if let errorResponse = try? decoder.decode(InsightsErrorResponse.self, from: data) {
                 #if DEBUG
                 print("🔴 Server error response: \(errorResponse.error)")
+                print("🔴 Error code: \(errorResponse.code)")
+                if let debug = errorResponse.debug {
+                    print("🔴 DEBUG INFO:")
+                    print("   - Message: \(debug.message ?? "none")")
+                    print("   - Type: \(debug.type ?? "none")")
+                    print("   - Stack: \(debug.stack ?? "none")")
+                }
                 #endif
                 throw InsightsError.serverError(errorResponse.error, code: errorResponse.code)
             }
@@ -418,6 +565,232 @@ class InsightViewModel: ObservableObject {
             AppLogger.log("❌ Decoding failed: \(details)", category: AppLogger.network, type: .error)
         }
     }
+
+    // MARK: - Persistence Methods
+
+    /// Saves insights to UserDefaults local cache for fast offline access (user-specific)
+    private func saveInsightsToCache(_ insights: JournalInsights) async {
+        // Get current user ID
+        guard let client = supabaseService.client else {
+            AppLogger.log("⚠️ Cannot save to cache: Supabase client not configured", category: AppLogger.network)
+            return
+        }
+
+        do {
+            let session = try await client.auth.session
+            let userId = session.user.id
+
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(insights)
+
+            let key = cacheKey(for: userId)
+            UserDefaults.standard.set(data, forKey: key)
+            AppLogger.log("💾 Insights saved to cache for user: \(userId.uuidString.prefix(8))...", category: AppLogger.network)
+        } catch {
+            AppLogger.log("❌ Failed to save insights to cache: \(error.localizedDescription)", category: AppLogger.network, type: .error)
+        }
+    }
+
+    /// Loads persisted insights from UserDefaults local cache (user-specific)
+    private func loadPersistedInsights() async -> JournalInsights? {
+        // Get current user ID
+        guard let client = supabaseService.client else {
+            AppLogger.log("⚠️ Cannot load from cache: Supabase client not configured", category: AppLogger.network)
+            return nil
+        }
+
+        do {
+            let session = try await client.auth.session
+            let userId = session.user.id
+
+            let key = cacheKey(for: userId)
+            guard let data = UserDefaults.standard.data(forKey: key) else {
+                AppLogger.log("📭 No cached insights found for user: \(userId.uuidString.prefix(8))...", category: AppLogger.network)
+                return nil
+            }
+
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let insights = try decoder.decode(JournalInsights.self, from: data)
+            AppLogger.log("✅ Loaded cached insights for user: \(userId.uuidString.prefix(8))...", category: AppLogger.network)
+            return insights
+        } catch {
+            AppLogger.log("❌ Failed to load persisted insights from cache: \(error.localizedDescription)", category: AppLogger.network, type: .error)
+            return nil
+        }
+    }
+
+    /// Loads insights from Supabase database based on entry count
+    /// Determines the correct milestone to fetch and returns insights (doesn't set self.insights)
+    private func loadInsightsFromDatabase(forEntryCount entryCount: Int) async -> JournalInsights? {
+        do {
+            // If at an exact milestone, try to fetch insights for that specific milestone
+            if entryCount >= 3 && entryCount % 3 == 0 {
+                if let fetchedInsights = try await insightsService.fetchInsightsForMilestone(entryCount) {
+                    AppLogger.log("☁️ Loaded insights from database for milestone \(entryCount)", category: AppLogger.network)
+                    return fetchedInsights
+                }
+            }
+
+            // Otherwise, fetch the latest insights regardless of milestone
+            // This handles cases where:
+            // - User deleted entries (had 18, now has 17)
+            // - User is between milestones (has 4, last milestone was 3)
+            // - Insights exist but not for exact current count
+            if let latestInsights = try await insightsService.fetchLatestInsights() {
+                AppLogger.log("☁️ Loaded latest insights from database (for entry count: \(entryCount))", category: AppLogger.network)
+                return latestInsights
+            } else {
+                AppLogger.log("📭 No insights found in database", category: AppLogger.network)
+                return nil
+            }
+        } catch {
+            AppLogger.log("⚠️ Failed to load insights from database: \(error.localizedDescription)", category: AppLogger.network, type: .error)
+            return nil
+        }
+    }
+
+    /// Calculates which milestone the current entry count represents (for saving new insights)
+    /// Returns 3, 6, 9, 12, etc.
+    private func calculateMilestone(for entryCount: Int) -> Int {
+        if entryCount < 3 {
+            return 3
+        } else if entryCount % 3 == 0 {
+            return entryCount
+        } else {
+            // Round up to next milestone
+            return ((entryCount / 3) + 1) * 3
+        }
+    }
+
+
+    // MARK: - Real-time Sync
+
+    /// Sets up real-time subscription for cross-device insights sync (called lazily, idempotent)
+    private func setupRealtimeSyncIfNeeded() {
+        // Only set up once
+        guard !isRealtimeSyncEnabled else { return }
+
+        // Check if Supabase client is configured
+        guard let client = supabaseService.client else {
+            // Silently skip - will retry next time generateInsights is called
+            return
+        }
+
+        isRealtimeSyncEnabled = true
+
+        Task { [weak self] in
+            guard let self = self else { return }
+
+            do {
+                // Get user ID for filtering
+                let session = try await client.auth.session
+                let userId = session.user.id.uuidString
+
+                // Create a channel for journal_insights table
+                let channel = await client.realtimeV2.channel("insights-sync-\(UUID().uuidString)")
+
+                // Subscribe to INSERT and UPDATE events for this user's insights
+                await channel.onPostgresChange(
+                    AnyAction.self,
+                    schema: "public",
+                    table: "journal_insights",
+                    filter: "user_id=eq.\(userId)"
+                ) { [weak self] change in
+                    Task { @MainActor [weak self] in
+                        await self?.handleRealtimeUpdate(change)
+                    }
+                }
+
+                // Subscribe to the channel
+                await channel.subscribe()
+
+                // Store channel reference on main actor
+                await MainActor.run { [weak self] in
+                    self?.realtimeChannel = channel
+                }
+
+                AppLogger.log("🔄 Real-time sync enabled for insights", category: AppLogger.network)
+
+            } catch {
+                AppLogger.log("⚠️ Failed to setup realtime sync: \(error.localizedDescription)", category: AppLogger.network, type: .error)
+                // Reset flag so we can retry
+                await MainActor.run { [weak self] in
+                    self?.isRealtimeSyncEnabled = false
+                }
+            }
+        }
+    }
+
+    /// Handles real-time update from Supabase
+    private func handleRealtimeUpdate(_ change: AnyAction) async {
+        AppLogger.log("🔄 Received real-time insights update", category: AppLogger.network)
+
+        // Reload insights from database
+        if let latestInsights = try? await insightsService.fetchLatestInsights() {
+            // Only update if the new insights are different
+            if self.insights?.entryCountMilestone != latestInsights.entryCountMilestone ||
+               self.insights?.generatedAt != latestInsights.generatedAt {
+                self.insights = latestInsights
+                await saveInsightsToCache(latestInsights)
+                AppLogger.log("✅ Insights updated from real-time sync", category: AppLogger.network)
+            }
+        }
+    }
+
+    // MARK: - Migration
+
+    /// Performs one-time migration of insights from old UserDefaults-only storage to database
+    private func migrateOldInsightsIfNeeded() async {
+        // Check if migration was already done
+        guard !UserDefaults.standard.bool(forKey: migratedFlagKey) else {
+            return
+        }
+
+        // Check if Supabase client is configured
+        guard supabaseService.client != nil else {
+            // Skip migration if Supabase isn't configured yet - will retry next time
+            return
+        }
+
+        // Check if there are old insights to migrate (using old global key)
+        guard let oldData = UserDefaults.standard.data(forKey: "lastGeneratedInsights") else {
+            // No old insights, mark as migrated
+            UserDefaults.standard.set(true, forKey: migratedFlagKey)
+            return
+        }
+
+        AppLogger.log("🔄 Migrating old insights to database...", category: AppLogger.network)
+
+        do {
+            // Decode old insights
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let oldInsights = try decoder.decode(JournalInsights.self, from: oldData)
+
+            // Determine milestone based on entries analyzed (best guess)
+            let milestone = max(3, (oldInsights.entriesAnalyzed / 3) * 3)
+
+            // Save to database
+            try await insightsService.saveInsights(oldInsights, for: milestone)
+
+            // Save to new user-specific cache
+            await saveInsightsToCache(oldInsights)
+
+            // Clear old global cache
+            UserDefaults.standard.removeObject(forKey: "lastGeneratedInsights")
+
+            // Mark migration as complete
+            UserDefaults.standard.set(true, forKey: migratedFlagKey)
+
+            AppLogger.log("✅ Migration complete: insights moved to database (milestone: \(milestone))", category: AppLogger.network)
+
+        } catch {
+            AppLogger.log("⚠️ Migration failed: \(error.localizedDescription)", category: AppLogger.network, type: .error)
+            // Don't set the flag, so we retry next time
+        }
+    }
 }
 
 // MARK: - Request Models
@@ -425,6 +798,12 @@ class InsightViewModel: ObservableObject {
 /// Request body for generate-insights edge function
 private struct GenerateInsightsRequest: Encodable {
     let entries: [JournalEntryRequest]
+    let forceRefresh: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case entries
+        case forceRefresh = "force_refresh"
+    }
 }
 
 /// Individual journal entry in request
@@ -449,11 +828,19 @@ private struct InsightsErrorResponse: Decodable {
     let error: String
     let code: String
     let retryAfter: Int?
+    let debug: DebugInfo?
+
+    struct DebugInfo: Decodable {
+        let message: String?
+        let type: String?
+        let stack: String?
+    }
 
     enum CodingKeys: String, CodingKey {
         case error
         case code
         case retryAfter = "retryAfter"
+        case debug
     }
 }
 

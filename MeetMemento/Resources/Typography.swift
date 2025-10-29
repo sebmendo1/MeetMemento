@@ -22,7 +22,7 @@ public struct Typography {
     // MARK: - Font family names
     private let headingFontNameBlack = "Recoleta-Black"
     private let headingFontNameSemiBold = "RecoletaAlt-SemiBold"
-    private let bodyFontName = "Manrope-Regular"
+    private let bodyFontName = "Manrope-Medium"
     private let bodyMediumFontName = "Manrope-Medium"
     private let bodyBoldFontName = "Manrope-Bold"
 

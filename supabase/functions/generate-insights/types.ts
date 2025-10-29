@@ -24,6 +24,7 @@ export interface JournalEntry {
  */
 export interface GenerateInsightsRequest {
   entries: JournalEntry[];
+  force_refresh?: boolean;   // Optional: Skip cache and generate fresh insights
 }
 
 // ============================================================
@@ -36,6 +37,14 @@ export interface GenerateInsightsRequest {
 export interface SourceEntry {
   date: string;          // YYYY-MM-DD format: "2025-10-23"
   title: string;         // Exact entry title
+}
+
+/**
+ * A date annotation representing a significant emotional moment
+ */
+export interface Annotation {
+  date: string;          // YYYY-MM-DD format: "2025-10-23"
+  summary: string;       // 2-3 sentence paragraph explaining what happened emotionally
 }
 
 /**
@@ -53,9 +62,10 @@ export interface Theme {
  * OpenAI's response structure (matches your prompt schema exactly)
  */
 export interface OpenAIInsightResponse {
-  summary: string;       // One sentence capturing main emotional themes (max 140 chars)
-  description: string;   // 150-180 word paragraph describing emotional landscape
-  themes: Theme[];       // Exactly 4-5 themes (not fewer, not more)
+  summary: string;         // One sentence capturing main emotional themes (max 140 chars)
+  description: string;     // 150-180 word paragraph describing emotional landscape
+  annotations: Annotation[]; // 3-5 significant emotional moments with context
+  themes: Theme[];         // Exactly 4-5 themes (not fewer, not more)
 }
 
 // ============================================================
@@ -84,6 +94,7 @@ export interface CachedInsight {
 export interface InsightsResponse {
   summary: string;              // From OpenAI response
   description: string;          // From OpenAI response
+  annotations: Annotation[];    // From OpenAI response
   themes: Theme[];              // From OpenAI response
   entriesAnalyzed: number;      // How many entries were analyzed
   generatedAt: string;          // ISO8601 timestamp

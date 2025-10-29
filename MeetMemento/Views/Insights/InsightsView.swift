@@ -49,13 +49,19 @@ public struct InsightsView: View {
         .background(Color.clear)
         .ignoresSafeArea()
         .onAppear {
-            loadInsightsIfNeeded()
+            // Only load if insights don't exist (handles first load + ViewModel recreation)
+            // Otherwise, insights will be cached in memory and reused
+            if insightViewModel.insights == nil {
+                Task {
+                    await insightViewModel.generateInsights(from: entryViewModel.entries)
+                }
+            }
         }
         .onChange(of: entryViewModel.entries.count) { oldValue, newValue in
             // Reload insights when entries change
             if newValue > 0 {
                 Task {
-                    await loadInsights()
+                    await insightViewModel.generateInsights(from: entryViewModel.entries)
                 }
             }
         }
@@ -70,6 +76,11 @@ public struct InsightsView: View {
                     title: insights.summary,
                     body: insights.description
                 )
+
+                // Date Annotations Timeline (between description and themes)
+                if !insights.annotations.isEmpty {
+                    InsightAnnotationsSection(annotations: insights.annotations)
+                }
 
                 // Themes Section
                 InsightsThemesSection(
@@ -350,6 +361,8 @@ public struct InsightsView: View {
                     body: JournalInsights.sample.description
                 )
 
+                InsightAnnotationsSection(annotations: JournalInsights.sample.annotations)
+
                 InsightsThemesSection(
                     themes: JournalInsights.sample.themes.map { $0.name }
                 )
@@ -379,6 +392,8 @@ public struct InsightsView: View {
                     title: JournalInsights.sample.summary,
                     body: JournalInsights.sample.description
                 )
+
+                InsightAnnotationsSection(annotations: JournalInsights.sample.annotations)
 
                 InsightsThemesSection(
                     themes: JournalInsights.sample.themes.map { $0.name }
