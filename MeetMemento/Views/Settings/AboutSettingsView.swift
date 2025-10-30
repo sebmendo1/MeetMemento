@@ -211,21 +211,6 @@ public struct AboutSettingsView: View {
                         openURL("https://sebmendo1.github.io/MeetMemento/terms.html")
                     }
                 )
-
-                Divider()
-                    .background(theme.border)
-                    .padding(.horizontal, 16)
-
-                // Privacy Policy
-                SettingsRow(
-                    icon: "hand.raised.fill",
-                    title: "Privacy Policy",
-                    subtitle: nil,
-                    showChevron: true,
-                    action: {
-                        openURL("https://sebmendo1.github.io/MeetMemento/privacy.html")
-                    }
-                )
             }
             .background(theme.cardBackground)
             .cornerRadius(12)
@@ -320,21 +305,6 @@ public struct AboutSettingsView: View {
     }
 }
 
-// MARK: - Share Sheet
-
-private struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(
-            activityItems: items,
-            applicationActivities: nil
-        )
-        return controller
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
 
 // MARK: - Previews
 

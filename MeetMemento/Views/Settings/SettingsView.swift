@@ -10,16 +10,17 @@ struct SettingsView: View {
     @Environment(\.typography) private var type
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var entryViewModel: EntryViewModel
 
     @State private var showLogoutConfirmation = false
     @State private var showDeleteAccountConfirmation = false
     @State private var isLoggingOut = false
     @State private var isDeletingAccount = false
     @State private var deleteAccountError: String?
-    #if DEBUG
-    @State private var testResult = ""
-    @State private var showSupabaseTest = false
-    #endif
+    @State private var showDataUsageInfo = false
+    @State private var exportedData: Data?
+    @State private var showShareSheet = false
+    @State private var isExportingData = false
 
     var body: some View {
         ScrollView {
@@ -33,10 +34,8 @@ struct SettingsView: View {
                 // About Section
                 aboutSection
 
-                #if DEBUG
-                // Development Section
-                developmentSection
-                #endif
+                // Data & Privacy Section
+                dataPrivacySection
 
                 // Danger Zone Section
                 dangerZoneSection
@@ -86,15 +85,18 @@ struct SettingsView: View {
                 Text("⚠️ WARNING: This will permanently delete your account and all journal entries. This action cannot be undone.\n\nAre you absolutely sure you want to continue?")
             }
         )
-        #if DEBUG
-        .sheet(isPresented: $showSupabaseTest) {
+        .sheet(isPresented: $showDataUsageInfo) {
             NavigationStack {
-                SupabaseTestView()
+                DataUsageInfoView()
                     .useTheme()
                     .useTypography()
             }
         }
-        #endif
+        .sheet(isPresented: $showShareSheet) {
+            if let data = exportedData {
+                ShareSheet(items: [data])
+            }
+        }
     }
 
     // MARK: - Sections
@@ -209,11 +211,10 @@ struct SettingsView: View {
         }
     }
 
-    #if DEBUG
-    private var developmentSection: some View {
+    private var dataPrivacySection: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Section header
-            Text("Development")
+            Text("Data & Privacy")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(theme.foreground)
                 .padding(.bottom, 4)
@@ -221,12 +222,12 @@ struct SettingsView: View {
             // Section content card
             VStack(spacing: 0) {
                 SettingsRow(
-                    icon: "network",
-                    title: "Test Supabase Connection",
-                    subtitle: nil,
+                    icon: "arrow.down.doc",
+                    title: "Export My Data",
+                    subtitle: isExportingData ? "Preparing export..." : "Download all your journal entries",
                     showChevron: true,
                     action: {
-                        showSupabaseTest = true
+                        exportData()
                     }
                 )
 
@@ -235,12 +236,28 @@ struct SettingsView: View {
                     .padding(.horizontal, 16)
 
                 SettingsRow(
-                    icon: "doc.text",
-                    title: "Test Entry Loading",
-                    subtitle: testResult.isEmpty ? nil : testResult,
-                    showChevron: false,
+                    icon: "hand.raised",
+                    title: "Privacy Policy",
+                    subtitle: "How we protect your data",
+                    showChevron: true,
                     action: {
-                        testEntryLoading()
+                        if let url = URL(string: "https://sebmendo1.github.io/MeetMemento/privacy.html") {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                )
+
+                Divider()
+                    .background(theme.border)
+                    .padding(.horizontal, 16)
+
+                SettingsRow(
+                    icon: "info.circle",
+                    title: "What Data We Collect",
+                    subtitle: "Learn about data usage",
+                    showChevron: true,
+                    action: {
+                        showDataUsageInfo = true
                     }
                 )
             }
@@ -248,7 +265,6 @@ struct SettingsView: View {
             .cornerRadius(12)
         }
     }
-    #endif
 
     private var dangerZoneSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -345,47 +361,50 @@ struct SettingsView: View {
         }
     }
 
-    #if DEBUG
-    private func testEntryLoading() {
-        testResult = "Testing..."
+    private func exportData() {
+        isExportingData = true
 
         Task {
             do {
-                // Test authentication first
-                let user = try await SupabaseService.shared.getCurrentUser()
-                print("✅ User authenticated: \(user?.email ?? "Unknown")")
+                // Create export from current entries
+                let export = EntryExportService.shared.createExport(from: entryViewModel.entries)
 
-                // Test fetching entries
-                let entries = try await SupabaseService.shared.fetchEntries()
-                print("✅ Fetched \(entries.count) entries")
+                // Convert export to JSON data
+                let jsonData = try EntryExportService.shared.getJSONData(from: export)
 
                 await MainActor.run {
-                    if let user = user {
-                        testResult = "✅ Success! User: \(user.email ?? "Unknown"), Found \(entries.count) entries"
-                    } else {
-                        testResult = "⚠️ No user authenticated, but connection works"
-                    }
+                    exportedData = jsonData
+                    isExportingData = false
+                    showShareSheet = true
                 }
             } catch {
-                print("❌ Test failed: \(error)")
+                print("❌ Export failed: \(error)")
                 await MainActor.run {
-                    let errorDesc = error.localizedDescription
-                    if errorDesc.contains("data couldn't be read") || errorDesc.contains("missing") {
-                        testResult = "❌ Schema Error: \(errorDesc)\n\nCheck console for detailed logs"
-                    } else {
-                        testResult = "❌ Failed: \(errorDesc)"
-                    }
+                    isExportingData = false
+                    // TODO: Show error alert to user
                 }
             }
         }
     }
-    #endif
+}
+
+// MARK: - ShareSheet Helper
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {
     NavigationStack {
         SettingsView()
             .environmentObject(AuthViewModel())
+            .environmentObject(EntryViewModel())
             .useTheme()
             .useTypography()
     }
