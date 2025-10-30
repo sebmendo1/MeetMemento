@@ -98,8 +98,8 @@ public struct AppearanceSettingsView: View {
                             }
                         }
                     }
-                    .background(theme.cardBackground)
-                    .cornerRadius(12)
+                    .background(BaseColors.white)
+                    .cornerRadius(16)
                 }
                 .padding(.horizontal, 16)
 

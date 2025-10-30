@@ -154,8 +154,8 @@ struct SettingsView: View {
                     )
                 }
             }
-            .background(theme.cardBackground)
-            .cornerRadius(12)
+            .background(BaseColors.white)
+            .cornerRadius(16)
         }
     }
 
@@ -180,8 +180,8 @@ struct SettingsView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            .background(theme.cardBackground)
-            .cornerRadius(12)
+            .background(BaseColors.white)
+            .cornerRadius(16)
         }
     }
 
@@ -206,8 +206,8 @@ struct SettingsView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            .background(theme.cardBackground)
-            .cornerRadius(12)
+            .background(BaseColors.white)
+            .cornerRadius(16)
         }
     }
 
@@ -261,8 +261,8 @@ struct SettingsView: View {
                     }
                 )
             }
-            .background(theme.cardBackground)
-            .cornerRadius(12)
+            .background(BaseColors.white)
+            .cornerRadius(16)
         }
     }
 
@@ -303,10 +303,10 @@ struct SettingsView: View {
                     }
                 }
             }
-            .background(theme.cardBackground)
-            .cornerRadius(12)
+            .background(BaseColors.white)
+            .cornerRadius(16)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(theme.destructive.opacity(0.3), lineWidth: 1)
             )
         }
