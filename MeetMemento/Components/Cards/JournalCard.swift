@@ -12,7 +12,6 @@ struct JournalCard: View {
     var onTap: (() -> Void)? = nil
     var onEditTapped: (() -> Void)? = nil
     var onDeleteTapped: (() -> Void)? = nil
-    var onMoreTapped: (() -> Void)? = nil
     
     // MARK: - Environment
     @Environment(\.theme) private var theme
@@ -71,15 +70,12 @@ struct JournalCard: View {
 
     // MARK: - Subviews
     private var header: some View {
-        HStack(alignment: .top) {
-            Text(title)
-                .font(type.h4) // Recoleta heading font for prominence
-                .foregroundStyle(theme.foreground)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-            Spacer(minLength: 8)
-            MoreButton(action: { onMoreTapped?() })
-        }
+        Text(title)
+            .font(type.h4) // Recoleta heading font for prominence
+            .foregroundStyle(theme.foreground)
+            .lineLimit(2)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var footer: some View {
@@ -122,25 +118,6 @@ struct JournalCard: View {
     }
 }
 
-// MARK: - Three-dot (More) Button
-private struct MoreButton: View {
-    @Environment(\.theme) private var theme
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "ellipsis")
-                .imageScale(.medium)
-                .foregroundStyle(theme.foreground)
-                .padding(6)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("More options")
-        .accessibilityHint("Shows actions for this journal entry")
-        .contentShape(Rectangle())
-    }
-}
-
 // MARK: - Sample Data (for previews & local playgrounds)
 extension JournalCard {
     static let sampleTitle = "Morning Reflection"
@@ -167,8 +144,7 @@ private struct JournalCardHarness: View {
             date: previewDate,
             onTap: { /* no-op for harness */ },
             onEditTapped: { /* no-op for harness */ },
-            onDeleteTapped: { /* no-op for harness */ },
-            onMoreTapped: { /* no-op for harness */ }
+            onDeleteTapped: { /* no-op for harness */ }
         )
         .previewLayout(.sizeThatFits)
         .frame(maxWidth: .infinity) // allow card to stretch

@@ -175,10 +175,6 @@ struct YourEntriesView: View {
                                     onDeleteTapped: {
                                         entryToDelete = entry
                                         showDeleteConfirmation = true
-                                    },
-                                    onMoreTapped: {
-                                        entryToDelete = entry
-                                        showDeleteConfirmation = true
                                     }
                                 )
                                 .frame(maxWidth: .infinity) // Stretch to full width
