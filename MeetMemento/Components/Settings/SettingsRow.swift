@@ -51,7 +51,7 @@ struct SettingsRow: View {
                 // Title and subtitle
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(type.body)
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(isDestructive ? theme.destructive : theme.foreground)
 
                     if let subtitle = subtitle {
