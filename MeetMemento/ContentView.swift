@@ -23,11 +23,6 @@ public enum SettingsRoute: Hashable {
     case about
 }
 
-// MARK: - Navigation route for chat
-public enum ChatRoute: Hashable {
-    case aiChat
-}
-
 public struct ContentView: View {
     // Navigation path for entry editor and settings
     @State private var navigationPath = NavigationPath()
@@ -60,9 +55,6 @@ public struct ContentView: View {
                 BottomNavigation(
                     onJournalCreate: {
                         navigationPath.append(EntryRoute.create)
-                    },
-                    onChatTapped: {
-                        navigationPath.append(ChatRoute.aiChat)
                     }
                 )
             }
@@ -96,12 +88,6 @@ public struct ContentView: View {
                     AppearanceSettingsView()
                 case .about:
                     AboutSettingsView()
-                }
-            }
-            .navigationDestination(for: ChatRoute.self) { route in
-                switch route {
-                case .aiChat:
-                    AIChatView()
                 }
             }
         }

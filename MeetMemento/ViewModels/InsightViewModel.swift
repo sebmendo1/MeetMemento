@@ -56,11 +56,18 @@ class InsightViewModel: ObservableObject {
     }
 
     deinit {
-        // Clean up real-time subscription synchronously
+        // Note: Real-time cleanup should be called explicitly via cleanup() method
+        // before view is destroyed to ensure proper unsubscription
+        AppLogger.log("🔵 InsightViewModel deinitialized", category: AppLogger.network)
+    }
+
+    /// Explicitly cleanup real-time subscription
+    /// Call this method when the view is about to disappear
+    func cleanup() async {
         if let channel = realtimeChannel {
-            Task { [channel] in
-                await channel.unsubscribe()
-            }
+            await channel.unsubscribe()
+            realtimeChannel = nil
+            AppLogger.log("🔌 Real-time subscription cleaned up", category: AppLogger.network)
         }
     }
 
@@ -120,25 +127,42 @@ class InsightViewModel: ObservableObject {
             // Try database (cloud, cross-device)
             let dbInsights = await loadInsightsFromDatabase(forEntryCount: entryCount)
 
-            // Use whichever is most recent
-            if let cached = cachedInsights, let db = dbInsights {
-                // Both exist - use the newest
+            // Calculate the current milestone to validate cached data
+            let currentMilestone = calculateMilestone(for: entryCount)
+
+            // Validate cached insights match current milestone
+            let validCached = cachedInsights.flatMap { insights in
+                insights.entryCountMilestone == currentMilestone ? insights : nil
+            }
+
+            let validDb = dbInsights.flatMap { insights in
+                insights.entryCountMilestone == currentMilestone ? insights : nil
+            }
+
+            // Use whichever is most recent (and valid for current milestone)
+            if let cached = validCached, let db = validDb {
+                // Both exist and match milestone - use the newest
                 insights = cached.generatedAt > db.generatedAt ? cached : db
-                AppLogger.log("💾 Using \(insights?.generatedAt == cached.generatedAt ? "cached" : "database") insights (newer)", category: AppLogger.network)
+                AppLogger.log("💾 Using \(insights?.generatedAt == cached.generatedAt ? "cached" : "database") insights (milestone \(currentMilestone), newer)", category: AppLogger.network)
 
                 // Update cache if database was newer
                 if insights?.generatedAt == db.generatedAt {
                     await saveInsightsToCache(db)
                 }
-            } else if let cached = cachedInsights {
-                // Only cache exists
+            } else if let cached = validCached {
+                // Only valid cache exists for current milestone
                 insights = cached
-                AppLogger.log("💾 Using cached insights (database unavailable)", category: AppLogger.network)
-            } else if let db = dbInsights {
-                // Only database exists
+                AppLogger.log("💾 Using cached insights for milestone \(currentMilestone)", category: AppLogger.network)
+            } else if let db = validDb {
+                // Only valid database insights exist for current milestone
                 insights = db
                 await saveInsightsToCache(db)
-                AppLogger.log("☁️ Using database insights (no cache)", category: AppLogger.network)
+                AppLogger.log("☁️ Using database insights for milestone \(currentMilestone)", category: AppLogger.network)
+            } else {
+                // No valid insights found for current milestone (may be stale data)
+                if cachedInsights != nil || dbInsights != nil {
+                    AppLogger.log("⚠️ Found cached insights but milestone doesn't match (current: \(currentMilestone))", category: AppLogger.network)
+                }
             }
         }
 

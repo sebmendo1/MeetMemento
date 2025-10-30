@@ -57,6 +57,12 @@ public struct InsightsView: View {
                 }
             }
         }
+        .onDisappear {
+            // Cleanup real-time subscription when view disappears
+            Task {
+                await insightViewModel.cleanup()
+            }
+        }
         .onChange(of: entryViewModel.entries.count) { oldValue, newValue in
             // Reload insights when entries change
             if newValue > 0 {

@@ -18,6 +18,35 @@ class InsightsService {
 
     private init() {}
 
+    // MARK: - Private Helpers
+
+    /// Executes an operation with automatic session refresh on expiry
+    /// - Parameter operation: The operation to execute with a valid session
+    /// - Returns: The result of the operation
+    /// - Throws: InsightsServiceError.authenticationFailed if refresh fails
+    private func withAuthSession<T>(_ operation: (Session) async throws -> T) async throws -> T {
+        guard let client = supabaseService.client else {
+            throw InsightsServiceError.clientNotConfigured
+        }
+
+        do {
+            let session = try await client.auth.session
+            return try await operation(session)
+        } catch {
+            // Try to refresh the session if it failed
+            AppLogger.log("⚠️ Session error, attempting refresh: \(error.localizedDescription)", category: AppLogger.network)
+
+            do {
+                let refreshedSession = try await client.auth.refreshSession()
+                AppLogger.log("✅ Session refreshed successfully", category: AppLogger.network)
+                return try await operation(refreshedSession)
+            } catch {
+                AppLogger.log("❌ Session refresh failed: \(error.localizedDescription)", category: AppLogger.network, type: .error)
+                throw InsightsServiceError.authenticationFailed
+            }
+        }
+    }
+
     // MARK: - Public Methods
 
     /// Saves insights to Supabase for a specific milestone
@@ -30,9 +59,10 @@ class InsightsService {
             throw InsightsServiceError.clientNotConfigured
         }
 
-        // Get current user ID
-        let session = try await client.auth.session
-        let userId = session.user.id
+        // Get current user ID with automatic session refresh
+        let userId = try await withAuthSession { session in
+            session.user.id
+        }
 
         #if DEBUG
         print("💾 Saving insights for milestone \(milestone) to Supabase...")
@@ -107,9 +137,10 @@ class InsightsService {
             throw InsightsServiceError.clientNotConfigured
         }
 
-        // Get current user ID
-        let session = try await client.auth.session
-        let userId = session.user.id
+        // Get current user ID with automatic session refresh
+        let userId = try await withAuthSession { session in
+            session.user.id
+        }
 
         #if DEBUG
         print("🔍 Fetching insights for milestone \(milestone) from Supabase...")
@@ -178,9 +209,10 @@ class InsightsService {
             throw InsightsServiceError.clientNotConfigured
         }
 
-        // Get current user ID
-        let session = try await client.auth.session
-        let userId = session.user.id
+        // Get current user ID with automatic session refresh
+        let userId = try await withAuthSession { session in
+            session.user.id
+        }
 
         #if DEBUG
         print("🔍 Fetching latest insights from Supabase...")
@@ -261,9 +293,10 @@ class InsightsService {
             throw InsightsServiceError.clientNotConfigured
         }
 
-        // Get current user ID
-        let session = try await client.auth.session
-        let userId = session.user.id
+        // Get current user ID with automatic session refresh
+        let userId = try await withAuthSession { session in
+            session.user.id
+        }
 
         #if DEBUG
         print("🔍 Fetching all insights from Supabase...")
@@ -321,9 +354,10 @@ class InsightsService {
             throw InsightsServiceError.clientNotConfigured
         }
 
-        // Get current user ID
-        let session = try await client.auth.session
-        let userId = session.user.id
+        // Get current user ID with automatic session refresh
+        let userId = try await withAuthSession { session in
+            session.user.id
+        }
 
         #if DEBUG
         print("🗑️ Deleting insights for milestone \(milestone)...")
@@ -359,9 +393,10 @@ class InsightsService {
             throw InsightsServiceError.clientNotConfigured
         }
 
-        // Get current user ID
-        let session = try await client.auth.session
-        let userId = session.user.id
+        // Get current user ID with automatic session refresh
+        let userId = try await withAuthSession { session in
+            session.user.id
+        }
 
         #if DEBUG
         print("🗑️ Deleting all insights...")
@@ -460,6 +495,7 @@ private struct InsightDatabaseRow: Codable {
 
 enum InsightsServiceError: LocalizedError {
     case clientNotConfigured
+    case authenticationFailed
     case saveFailed(String)
     case fetchFailed(String)
     case deleteFailed(String)
@@ -468,6 +504,8 @@ enum InsightsServiceError: LocalizedError {
         switch self {
         case .clientNotConfigured:
             return "Supabase client is not configured"
+        case .authenticationFailed:
+            return "Authentication session expired. Please sign in again."
         case .saveFailed(let message):
             return "Failed to save insights: \(message)"
         case .fetchFailed(let message):

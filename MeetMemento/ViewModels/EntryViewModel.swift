@@ -24,7 +24,7 @@ class EntryViewModel: ObservableObject {
 
    private var hasLoadedOnce = false
    private var isLoadingInProgress = false // Prevent concurrent load operations
-   private var exportTask: Task<Void, Never>? // Track export task to prevent race conditions
+   private var exportSequence = 0 // Sequence number to prevent race conditions in export regeneration
     
     // MARK: - Month Grouping
     
@@ -84,16 +84,16 @@ class EntryViewModel: ObservableObject {
         #endif
 
         do {
-            // Check authentication first with timeout to prevent hanging (1s for local check)
-            let currentUser = try await withTimeout(seconds: 1) {
+            // Check authentication first with timeout to prevent hanging (5s - OAuth token exchange can be slow)
+            let currentUser = try await withTimeout(seconds: 5) {
                 try await SupabaseService.shared.getCurrentUser()
             }
             #if DEBUG
             print("✅ User authenticated: \(currentUser?.email ?? "Unknown")")
             #endif
 
-            // Fetch entries with timeout (2s for network operation)
-            entries = try await withTimeout(seconds: 2) {
+            // Fetch entries with timeout (10s for network operation - accommodates slow connections)
+            entries = try await withTimeout(seconds: 10) {
                 try await self.supabaseService.fetchEntries()
             }
             #if DEBUG
@@ -258,13 +258,23 @@ class EntryViewModel: ObservableObject {
     // MARK: - JSON Export
 
     /// Schedules export regeneration with debouncing to prevent race conditions
-    /// Cancels any pending export task before scheduling a new one
+    /// Uses sequence number to prevent cancelled tasks from interfering with new ones
     private func scheduleExportRegeneration() {
-        exportTask?.cancel()
-        exportTask = Task {
+        exportSequence += 1
+        let currentSequence = exportSequence
+
+        Task {
             // Debounce: wait 500ms before regenerating
             try? await Task.sleep(nanoseconds: 500_000_000)
-            guard !Task.isCancelled else { return }
+
+            // Only proceed if this is still the latest requested export
+            guard currentSequence == exportSequence else {
+                #if DEBUG
+                print("⏭️ Skipping stale export regeneration (sequence \(currentSequence) vs \(exportSequence))")
+                #endif
+                return
+            }
+
             await regenerateExport()
         }
     }
@@ -343,7 +353,9 @@ class EntryViewModel: ObservableObject {
                 throw TimeoutError()
             }
 
-            let result = try await group.next()!
+            guard let result = try await group.next() else {
+                throw TimeoutError()
+            }
             group.cancelAll()
             return result
         }
