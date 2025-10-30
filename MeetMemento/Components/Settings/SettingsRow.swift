@@ -70,8 +70,8 @@ struct SettingsRow: View {
                         .tint(theme.primary)
                 } else if showChevron {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(theme.mutedForeground)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.foreground.opacity(0.3))
                 }
             }
             .padding(.horizontal, 16)

@@ -45,7 +45,7 @@ struct SettingsView: View {
             .padding(.horizontal, 20)
             .padding(.top, 24)
         }
-        .background(BaseColors.white.ignoresSafeArea())
+        .background(theme.background.ignoresSafeArea())
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
