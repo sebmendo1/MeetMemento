@@ -79,7 +79,7 @@ struct SettingsRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
-        .disabled(action == nil || showProgress)
+        .disabled(showProgress)
     }
 }
 
