@@ -115,36 +115,33 @@ fileprivate enum DemoTab: String, CaseIterable, Identifiable, Hashable, LabeledT
     var systemImage: String { self == .journal ? "book.closed.fill" : "sparkles" }
 }
 
-struct TabSwitcher_Previews: PreviewProvider {
-    private struct Wrapper: View {
-        @Environment(\.typography) private var type
-        @State private var selection: DemoTab = .journal
-        var body: some View {
-            VStack(spacing: 24) {
-                TabSwitcher<DemoTab>(selection: $selection)
-                    .useTheme()
-                    .useTypography()
-                    .frame(width: 180)
-                    .frame(height:64)
+// MARK: - Preview Wrapper
 
-                Text("Selected: \(selection.title)")
-                    .font(type.h4)
-            }
-            .padding()
+private struct TabSwitcherPreviewWrapper: View {
+    @Environment(\.typography) private var type
+    @State private var selection: DemoTab = .journal
+
+    var body: some View {
+        VStack(spacing: 24) {
+            TabSwitcher<DemoTab>(selection: $selection)
+                .useTheme()
+                .useTypography()
+                .frame(width: 180)
+                .frame(height:64)
+
+            Text("Selected: \(selection.title)")
+                .font(type.h4)
         }
+        .padding()
     }
+}
 
-    static var previews: some View {
-        Group {
-            Wrapper()
-                .previewDisplayName("Light")
-                .preferredColorScheme(.light)
-                .previewLayout(.sizeThatFits)
+#Preview("Light") {
+    TabSwitcherPreviewWrapper()
+        .preferredColorScheme(.light)
+}
 
-            Wrapper()
-                .previewDisplayName("Dark")
-                .preferredColorScheme(.dark)
-                .previewLayout(.sizeThatFits)
-        }
-    }
+#Preview("Dark") {
+    TabSwitcherPreviewWrapper()
+        .preferredColorScheme(.dark)
 }

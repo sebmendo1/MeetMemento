@@ -54,7 +54,6 @@ public struct PrimaryButton: View {
     .padding()
     .useTheme()
     .useTypography()
-    .previewLayout(.sizeThatFits)
 }
 
 #Preview("Dark") {
@@ -66,5 +65,4 @@ public struct PrimaryButton: View {
     .useTheme()
     .useTypography()
     .preferredColorScheme(.dark)
-    .previewLayout(.sizeThatFits)
 }

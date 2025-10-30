@@ -56,33 +56,26 @@ public struct TabPill: View {
 
 // MARK: - Previews
 
-struct TabPill_Previews: PreviewProvider {
-    static var previews: some View {
-        Group {
-            // Light
-            HStack(spacing: 16) {
-                TabPill(title: "Journal", systemImage: "book.closed.fill", isSelected: true)
-                TabPill(title: "Insights", systemImage: "sparkles", isSelected: false)
-            }
-            .padding()
-            .background(Theme.light.background)
-            .useTheme()
-            .useTypography()
-            .previewDisplayName("TabPill • Light")
-            .preferredColorScheme(.light)
-
-            // Dark
-            VStack(spacing: 16) {
-                TabPill(title: "Journal", systemImage: "book.closed.fill", isSelected: false)
-                TabPill(title: "Insights", systemImage: "sparkles", isSelected: true)
-            }
-            .padding()
-            .background(Theme.dark.background)
-            .useTheme()
-            .useTypography()
-            .previewDisplayName("TabPill • Dark")
-            .preferredColorScheme(.dark)
-        }
-        .previewLayout(.sizeThatFits)
+#Preview("TabPill • Light") {
+    HStack(spacing: 16) {
+        TabPill(title: "Journal", systemImage: "book.closed.fill", isSelected: true)
+        TabPill(title: "Insights", systemImage: "sparkles", isSelected: false)
     }
+    .padding()
+    .background(Theme.light.background)
+    .useTheme()
+    .useTypography()
+    .preferredColorScheme(.light)
+}
+
+#Preview("TabPill • Dark") {
+    VStack(spacing: 16) {
+        TabPill(title: "Journal", systemImage: "book.closed.fill", isSelected: false)
+        TabPill(title: "Insights", systemImage: "sparkles", isSelected: true)
+    }
+    .padding()
+    .background(Theme.dark.background)
+    .useTheme()
+    .useTypography()
+    .preferredColorScheme(.dark)
 }

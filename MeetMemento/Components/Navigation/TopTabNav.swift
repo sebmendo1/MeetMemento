@@ -126,19 +126,18 @@ public struct TopNav: View {
     }
 }
 
-#Preview {
-    VStack(spacing: 24) {
-        // Simulated environment
-        TopNav(variant: .tabs, selection: .constant(.yourEntries))
-            .environment(\.theme, Theme.light)
-            .environment(\.typography, Typography())
-            .previewDisplayName("Static (Your Entries)")
+#Preview("Static (Your Entries)") {
+    TopNav(variant: .tabs, selection: .constant(.yourEntries))
+        .environment(\.theme, Theme.light)
+        .environment(\.typography, Typography())
+        .padding()
+        .background(Color(.systemBackground))
+}
 
-        TopNavPreviewInteractive()
-            .previewDisplayName("Interactive Switch")
-    }
-    .padding()
-    .background(Color(.systemBackground))
+#Preview("Interactive Switch") {
+    TopNavPreviewInteractive()
+        .padding()
+        .background(Color(.systemBackground))
 }
 
 // MARK: - Interactive Preview

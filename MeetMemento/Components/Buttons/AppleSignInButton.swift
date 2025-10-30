@@ -73,7 +73,6 @@ public struct AppleSignInButton: View {
     }
     .padding()
     .preferredColorScheme(.light)
-    .previewLayout(.sizeThatFits)
 }
 
 #Preview("Dark") {
@@ -84,7 +83,6 @@ public struct AppleSignInButton: View {
     }
     .padding()
     .preferredColorScheme(.dark)
-    .previewLayout(.sizeThatFits)
 }
 
 
