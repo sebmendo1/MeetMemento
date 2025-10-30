@@ -85,6 +85,7 @@ struct Theme {
     let foreground: Color
     let card: Color
     let cardForeground: Color
+    let cardBackground: Color  // Pure white background for cards
     let popover: Color
     let popoverForeground: Color
     let primary: Color
@@ -162,6 +163,7 @@ struct Theme {
         foreground: GrayScale.gray900,
         card: BaseColors.offWhite,
         cardForeground: GrayScale.gray900,
+        cardBackground: BaseColors.white,
         popover: BaseColors.offWhite,
         popoverForeground: GrayScale.gray900,
         primary: PrimaryScale.primary500,
@@ -217,6 +219,7 @@ struct Theme {
         foreground: GrayScale.gray50,
         card: GrayScale.gray800,
         cardForeground: GrayScale.gray50,
+        cardBackground: GrayScale.gray800,
         popover: GrayScale.gray800,
         popoverForeground: GrayScale.gray50,
         primary: PrimaryScale.primary400,

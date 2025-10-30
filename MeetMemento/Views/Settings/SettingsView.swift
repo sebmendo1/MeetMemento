@@ -152,7 +152,7 @@ struct SettingsView: View {
                     )
                 }
             }
-            .background(theme.card)
+            .background(theme.cardBackground)
             .cornerRadius(12)
         }
     }
@@ -178,7 +178,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            .background(theme.card)
+            .background(theme.cardBackground)
             .cornerRadius(12)
         }
     }
@@ -204,7 +204,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            .background(theme.card)
+            .background(theme.cardBackground)
             .cornerRadius(12)
         }
     }
@@ -244,7 +244,7 @@ struct SettingsView: View {
                     }
                 )
             }
-            .background(theme.card)
+            .background(theme.cardBackground)
             .cornerRadius(12)
         }
     }
@@ -287,7 +287,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            .background(theme.card)
+            .background(theme.cardBackground)
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)

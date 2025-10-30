@@ -98,7 +98,7 @@ public struct AppearanceSettingsView: View {
                             }
                         }
                     }
-                    .background(theme.card)
+                    .background(theme.cardBackground)
                     .cornerRadius(12)
                 }
                 .padding(.horizontal, 16)

@@ -160,7 +160,7 @@ public struct AboutSettingsView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .background(theme.card)
+            .background(theme.cardBackground)
             .cornerRadius(12)
             .padding(.horizontal, 16)
         }
@@ -186,7 +186,7 @@ public struct AboutSettingsView: View {
                     }
                 )
             }
-            .background(theme.card)
+            .background(theme.cardBackground)
             .cornerRadius(12)
             .padding(.horizontal, 16)
         }
@@ -227,7 +227,7 @@ public struct AboutSettingsView: View {
                     }
                 )
             }
-            .background(theme.card)
+            .background(theme.cardBackground)
             .cornerRadius(12)
             .padding(.horizontal, 16)
         }
@@ -268,7 +268,7 @@ public struct AboutSettingsView: View {
                     }
                 )
             }
-            .background(theme.card)
+            .background(theme.cardBackground)
             .cornerRadius(12)
             .padding(.horizontal, 16)
         }

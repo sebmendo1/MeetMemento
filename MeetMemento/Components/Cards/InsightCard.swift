@@ -36,7 +36,7 @@ public struct InsightCard: View {
             }
         }
         .padding(16)
-        .background(theme.card)
+        .background(theme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: theme.radius.lg, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: theme.radius.lg)
