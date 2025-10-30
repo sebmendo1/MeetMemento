@@ -169,6 +169,13 @@ struct YourEntriesView: View {
                                     onTap: {
                                         onNavigateToEntry(.edit(entry))
                                     },
+                                    onEditTapped: {
+                                        onNavigateToEntry(.edit(entry))
+                                    },
+                                    onDeleteTapped: {
+                                        entryToDelete = entry
+                                        showDeleteConfirmation = true
+                                    },
                                     onMoreTapped: {
                                         entryToDelete = entry
                                         showDeleteConfirmation = true

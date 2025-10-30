@@ -10,6 +10,8 @@ struct JournalCard: View {
 
     /// Optional actions (no-op by default so previews never depend on app state)
     var onTap: (() -> Void)? = nil
+    var onEditTapped: (() -> Void)? = nil
+    var onDeleteTapped: (() -> Void)? = nil
     var onMoreTapped: (() -> Void)? = nil
     
     // MARK: - Environment
@@ -54,6 +56,15 @@ struct JournalCard: View {
                 isPressed = pressing
             }
         }, perform: {})
+        .contextMenu {
+            Button(action: { onEditTapped?() }) {
+                Label("Edit", systemImage: "pencil")
+            }
+
+            Button(role: .destructive, action: { onDeleteTapped?() }) {
+                Label("Delete", systemImage: "trash")
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -155,7 +166,9 @@ private struct JournalCardHarness: View {
             excerpt: JournalCard.sampleExcerpt,
             date: previewDate,
             onTap: { /* no-op for harness */ },
-            onMoreTapped: { /* present a mock sheet/menu in sandbox if you want */ }
+            onEditTapped: { /* no-op for harness */ },
+            onDeleteTapped: { /* no-op for harness */ },
+            onMoreTapped: { /* no-op for harness */ }
         )
         .previewLayout(.sizeThatFits)
         .frame(maxWidth: .infinity) // allow card to stretch
