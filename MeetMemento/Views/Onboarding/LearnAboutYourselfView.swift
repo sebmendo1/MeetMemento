@@ -70,7 +70,7 @@ public struct LearnAboutYourselfView: View {
                                 .font(type.captionText)
                                 .foregroundStyle(
                                     entryText.count > 2000 ? Color.red :
-                                    entryText.count < 50 ? theme.mutedForeground.opacity(0.5) :
+                                    entryText.count < 20 ? theme.mutedForeground.opacity(0.5) :
                                     theme.mutedForeground
                                 )
                         }
@@ -124,7 +124,7 @@ public struct LearnAboutYourselfView: View {
 
     private var canProceed: Bool {
         let count = entryText.trimmingCharacters(in: .whitespacesAndNewlines).count
-        return !isProcessing && count >= 50 && count <= 2000
+        return !isProcessing && count >= 20 && count <= 2000
     }
 
     // MARK: - Actions

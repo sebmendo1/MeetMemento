@@ -73,7 +73,7 @@ public struct AddEntryView: View {
             }
             .padding(.horizontal, 20)
         }
-        .background(BaseColors.white.ignoresSafeArea())
+        .background(theme.background.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -155,7 +155,7 @@ public struct AddEntryView: View {
         guard !trimmedText.isEmpty else { return }
 
         isSaving = true
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
         onSave(trimmedTitle, trimmedText)
 

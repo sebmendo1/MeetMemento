@@ -46,7 +46,7 @@ public struct WelcomeView: View {
                     .headerGradient()
 
                 // Description
-                Text("Your AI journalling partner.")
+                Text("Your AI journaling partner.")
                     .font(type.body)
                     .foregroundStyle(theme.mutedForeground)
                     .multilineTextAlignment(.center)

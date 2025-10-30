@@ -176,7 +176,11 @@ public struct InsightsView: View {
                     .frame(width: 120, height: 120)
 
                 Circle()
-                    .trim(from: 0, to: CGFloat(entryCount % 3) / 3.0)
+                    .trim(from: 0, to: {
+                        // Calculate progress toward next milestone
+                        let remainder = entryCount % 3
+                        return remainder == 0 ? 1.0 : CGFloat(remainder) / 3.0
+                    }())
                     .stroke(.white, lineWidth: 8)
                     .frame(width: 120, height: 120)
                     .rotationEffect(.degrees(-90))

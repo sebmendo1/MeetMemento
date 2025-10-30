@@ -42,7 +42,7 @@ public struct BottomNavigation: View {
                     onJournalCreate()
                 }
                 .padding(.trailing, horizontalPadding)
-                .accessibilityLabel("New Entry")
+                .accessibilityLabel("Create new journal entry")
             }
             .padding(.bottom, bottomPadding)
         }
