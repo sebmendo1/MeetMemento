@@ -215,7 +215,14 @@ public struct SignInBottomSheet: View {
         isLoadingAppleNative = true
         appleNativeError = ""
 
-        let nonce = NonceGenerator.randomNonce()
+        let nonce: String
+        do {
+            nonce = try NonceGenerator.randomNonce()
+        } catch {
+            appleNativeError = "Failed to generate secure authentication nonce"
+            isLoadingAppleNative = false
+            return
+        }
         let hashedNonce = NonceGenerator.sha256(nonce)
 
         let request = ASAuthorizationAppleIDProvider().createRequest()

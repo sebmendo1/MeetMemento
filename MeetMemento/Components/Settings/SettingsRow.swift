@@ -38,48 +38,58 @@ struct SettingsRow: View {
     }
 
     var body: some View {
-        Button {
-            action?()
-        } label: {
-            HStack(spacing: 12) {
-                // Icon
-                Image(systemName: icon)
-                    .font(.system(size: 20))
-                    .foregroundStyle(isDestructive ? theme.destructive : theme.primary)
-                    .frame(width: 28, height: 28)
+        // Only wrap in Button if there's an action (not when used with NavigationLink)
+        if let action = action {
+            Button {
+                action()
+            } label: {
+                rowContent
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(showProgress)
+        } else {
+            // No button wrapper - used when wrapped in NavigationLink
+            rowContent
+        }
+    }
 
-                // Title and subtitle
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(isDestructive ? theme.destructive : theme.foreground)
+    private var rowContent: some View {
+        HStack(spacing: 12) {
+            // Icon
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundStyle(isDestructive ? theme.destructive : theme.primary)
+                .frame(width: 28, height: 28)
 
-                    if let subtitle = subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 14))
-                            .foregroundStyle(theme.mutedForeground)
-                            .lineLimit(2)
-                    }
-                }
+            // Title and subtitle
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isDestructive ? theme.destructive : theme.foreground)
 
-                Spacer()
-
-                // Trailing element
-                if showProgress {
-                    ProgressView()
-                        .tint(theme.primary)
-                } else if showChevron {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(theme.foreground.opacity(0.3))
+                if let subtitle = subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 14))
+                        .foregroundStyle(theme.mutedForeground)
+                        .lineLimit(2)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
+
+            Spacer()
+
+            // Trailing element
+            if showProgress {
+                ProgressView()
+                    .tint(theme.primary)
+            } else if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.foreground.opacity(0.3))
+            }
         }
-        .buttonStyle(PlainButtonStyle())
-        .disabled(showProgress)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 }
 

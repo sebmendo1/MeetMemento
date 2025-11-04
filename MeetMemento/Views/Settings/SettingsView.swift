@@ -21,6 +21,8 @@ struct SettingsView: View {
     @State private var exportedData: Data?
     @State private var showShareSheet = false
     @State private var isExportingData = false
+    @State private var exportError: String?
+    @State private var showExportError = false
 
     var body: some View {
         ScrollView {
@@ -96,6 +98,11 @@ struct SettingsView: View {
             if let data = exportedData {
                 ShareSheet(items: [data])
             }
+        }
+        .alert("Export Failed", isPresented: $showExportError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportError ?? "Failed to export your data. Please try again.")
         }
     }
 
@@ -378,11 +385,14 @@ struct SettingsView: View {
                     showShareSheet = true
                 }
             } catch {
-                print("❌ Export failed: \(error)")
                 await MainActor.run {
+                    exportError = error.localizedDescription
                     isExportingData = false
-                    // TODO: Show error alert to user
+                    showExportError = true
                 }
+                AppLogger.log("❌ Export failed: \(error.localizedDescription)",
+                             category: AppLogger.general,
+                             type: .error)
             }
         }
     }
@@ -394,6 +404,19 @@ struct ShareSheet: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+
+        // iPad popover configuration (required to prevent crash on iPad)
+        if let popover = controller.popoverPresentationController {
+            // Get the window scene to find a source view
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first,
+               let rootView = window.rootViewController?.view {
+                popover.sourceView = rootView
+                popover.sourceRect = CGRect(x: rootView.bounds.midX, y: rootView.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+        }
+
         return controller
     }
 

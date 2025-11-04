@@ -95,7 +95,13 @@ public struct LoginView: View {
     /// Demonstration of native Apple flow: obtain idToken + nonce and pass to AuthService.
     /// Use OAuth if you don't need native Account scope data; native allows more granular control.
     private func signInWithAppleNative() {
-        let nonce = NonceGenerator.randomNonce()
+        let nonce: String
+        do {
+            nonce = try NonceGenerator.randomNonce()
+        } catch {
+            self.status = "Failed to generate secure authentication nonce"
+            return
+        }
         let hashed = NonceGenerator.sha256(nonce)
 
         let request = ASAuthorizationAppleIDProvider().createRequest()

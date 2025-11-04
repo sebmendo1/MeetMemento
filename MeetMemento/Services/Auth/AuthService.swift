@@ -18,7 +18,12 @@ final class AuthService: NSObject {
     /// Update this in one place to control the callback URL scheme used by OAuth providers.
     /// ⚠️ IMPORTANT: URL scheme not configured. Add "memento" to Target → Info → URL Types for OAuth redirect
     struct Constants {
-        static let callbackURL = URL(string: "memento://auth-callback")!
+        static let callbackURL: URL = {
+            guard let url = URL(string: "memento://auth-callback") else {
+                fatalError("Invalid OAuth callback URL configuration. Check AuthService.Constants.callbackURL")
+            }
+            return url
+        }()
     }
 
     private let logger = os.Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.meetmemento", category: "auth")
