@@ -256,18 +256,18 @@ public struct InsightsView: View {
         HStack(spacing: 6) {
             Image(systemName: "clock")
                 .font(.system(size: 12))
-                .foregroundStyle(theme.mutedForeground)
+                .foregroundStyle(.white.opacity(0.8))
 
             Text("Updated \(timeAgo(from: insights.generatedAt))")
                 .font(.system(size: 13))
-                .foregroundStyle(theme.mutedForeground)
+                .foregroundStyle(.white.opacity(0.8))
 
             Spacer()
 
             if insightViewModel.isRegeneratingInBackground {
                 ProgressView()
                     .controlSize(.mini)
-                    .tint(theme.mutedForeground)
+                    .tint(.white.opacity(0.8))
             }
         }
         .padding(.horizontal, 4)
