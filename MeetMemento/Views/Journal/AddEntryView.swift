@@ -18,10 +18,14 @@ public struct AddEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @Environment(\.typography) private var type
-    
+
+    @StateObject private var speechService = SpeechService.shared
+
     @State private var title: String
     @State private var text: String
     @State private var isSaving = false
+    @State private var showSTTError = false
+    @State private var showPermissionDenied = false
 
     @FocusState private var focusedField: Field?
 
@@ -77,11 +81,43 @@ public struct AddEntryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                saveButton
+                HStack(spacing: 12) {
+                    microphoneButton
+                    saveButton
+                }
             }
         }
         .onAppear {
             setupInitialFocus()
+        }
+        .onChange(of: speechService.transcribedText) { oldValue, newValue in
+            if !newValue.isEmpty {
+                insertTranscribedText(newValue)
+            }
+        }
+        .alert("Microphone Access Required", isPresented: $showPermissionDenied) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("MeetMemento needs microphone access to transcribe your voice. Enable it in Settings > Privacy > Microphone.")
+        }
+        .alert("Recording Failed", isPresented: $showSTTError) {
+            Button("Try Again") {
+                Task {
+                    do {
+                        try await speechService.startRecording()
+                    } catch {
+                        showSTTError = true
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(speechService.errorMessage ?? "Unable to start recording. Please try again.")
         }
     }
     
@@ -125,6 +161,60 @@ public struct AddEntryView: View {
         }
     }
     
+    private var microphoneButton: some View {
+        Button {
+            Task {
+                if speechService.isRecording {
+                    await speechService.stopRecording()
+                } else {
+                    do {
+                        try await speechService.startRecording()
+                    } catch let error as SpeechService.SpeechError {
+                        if case .permissionDenied = error {
+                            showPermissionDenied = true
+                        } else {
+                            showSTTError = true
+                        }
+                    } catch {
+                        showSTTError = true
+                    }
+                }
+            }
+        } label: {
+            VStack(spacing: 4) {
+                ZStack {
+                    if speechService.isProcessing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(theme.primary)
+                    } else {
+                        Image(systemName: speechService.isRecording ? "stop.circle.fill" : "mic.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(speechService.isRecording ? .red : theme.primary)
+                            .scaleEffect(speechService.isRecording ? 1.1 : 1.0)
+                            .opacity(speechService.isRecording ? 0.8 : 1.0)
+                            .animation(
+                                speechService.isRecording
+                                    ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+                                    : .default,
+                                value: speechService.isRecording
+                            )
+                    }
+                }
+
+                // Duration timer
+                if speechService.isRecording {
+                    Text(formatDuration(speechService.currentDuration))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.red)
+                }
+            }
+        }
+        .disabled(speechService.isProcessing)
+        .accessibilityLabel(speechService.isRecording ? "Stop recording" : "Start voice recording")
+        .accessibilityHint(speechService.isRecording ? "Double-tap to stop and insert text" : "Double-tap to record your voice")
+    }
+
     private var saveButton: some View {
         Button {
             save()
@@ -160,6 +250,30 @@ public struct AddEntryView: View {
         onSave(trimmedTitle, trimmedText)
 
         isSaving = false
+    }
+
+    private func insertTranscribedText(_ transcribedText: String) {
+        // Append to body field with proper spacing
+        if text.isEmpty {
+            text = transcribedText
+        } else {
+            text += "\n\n" + transcribedText
+        }
+
+        // Clear transcription buffer
+        speechService.transcribedText = ""
+
+        // Provide haptic feedback
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+        // Keep body field focused
+        focusedField = .body
+    }
+
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
 }
 

@@ -24,5 +24,9 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
 	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MeetMemento needs microphone access to transcribe your journal entries using voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>MeetMemento uses speech recognition to convert your voice into text for journal entries.</string>
 </dict>
 </plist>
