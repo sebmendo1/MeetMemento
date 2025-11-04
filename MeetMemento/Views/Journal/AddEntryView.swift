@@ -81,11 +81,12 @@ public struct AddEntryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 12) {
-                    microphoneButton
-                    saveButton
-                }
+                saveButton
             }
+        }
+        .overlay(alignment: .bottom) {
+            microphoneFAB
+                .padding(.bottom, 32)
         }
         .onAppear {
             setupInitialFocus()
@@ -161,7 +162,7 @@ public struct AddEntryView: View {
         }
     }
     
-    private var microphoneButton: some View {
+    private var microphoneFAB: some View {
         Button {
             Task {
                 if speechService.isRecording {
@@ -181,16 +182,16 @@ public struct AddEntryView: View {
                 }
             }
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 ZStack {
                     if speechService.isProcessing {
                         ProgressView()
-                            .controlSize(.small)
-                            .tint(theme.primary)
+                            .controlSize(.regular)
+                            .tint(.white)
                     } else {
                         Image(systemName: speechService.isRecording ? "stop.circle.fill" : "mic.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(speechService.isRecording ? .red : theme.primary)
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
                             .scaleEffect(speechService.isRecording ? 1.1 : 1.0)
                             .opacity(speechService.isRecording ? 0.8 : 1.0)
                             .animation(
@@ -206,9 +207,23 @@ public struct AddEntryView: View {
                 if speechService.isRecording {
                     Text(formatDuration(speechService.currentDuration))
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.red)
+                        .foregroundColor(.white)
                 }
             }
+            .frame(width: 64, height: 64)
+            .background(
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: speechService.isRecording
+                                ? [Color.red.opacity(0.8), Color.red]
+                                : [theme.fabGradientStart, theme.fabGradientEnd],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
         }
         .disabled(speechService.isProcessing)
         .accessibilityLabel(speechService.isRecording ? "Stop recording" : "Start voice recording")
