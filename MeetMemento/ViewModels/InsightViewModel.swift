@@ -17,8 +17,11 @@ class InsightViewModel: ObservableObject {
     /// Current insights (nil if not loaded yet)
     @Published var insights: JournalInsights?
 
-    /// Loading state
+    /// Loading state (only true on first load when insights is nil)
     @Published var isLoading = false
+
+    /// Background regeneration state (true when updating existing insights)
+    @Published var isRegeneratingInBackground = false
 
     /// Error message (nil if no error)
     @Published var errorMessage: String?
@@ -175,11 +178,11 @@ class InsightViewModel: ObservableObject {
         }
 
         // Case 3: No existing insights found - determine if we should generate fresh ones
-        let isAtMilestone = (entryCount == 3) || (entryCount >= 6 && entryCount % 3 == 0)
+        let isAtMilestone = (entryCount == 2) || (entryCount >= 4 && entryCount % 2 == 0)
 
         if !isAtMilestone {
-            // Not at a milestone - show progress message
-            let nextMilestone = ((entryCount / 3) + 1) * 3
+            // Not at a milestone - show progress message (but show previous insights if they exist)
+            let nextMilestone = ((entryCount / 2) + 1) * 2
             let entriesNeeded = nextMilestone - entryCount
             errorMessage = "Write \(entriesNeeded) more \(entriesNeeded == 1 ? "entry" : "entries") for new insights"
             AppLogger.log("ℹ️ Not at milestone (\(entryCount) entries) - waiting for next milestone", category: AppLogger.network)
@@ -188,13 +191,16 @@ class InsightViewModel: ObservableObject {
 
         // We are at a milestone and no insights exist - generate fresh ones
         let milestone = calculateMilestone(for: entryCount)
-        AppLogger.log("✅ At milestone \(milestone) with no existing insights - generating fresh insights", category: AppLogger.network)
 
-        // If we reach here, we ARE at a milestone and SHOULD generate fresh insights
-        // Clear any existing insights from memory to ensure fresh generation
-        if insights != nil {
-            AppLogger.log("🔄 Clearing existing insights from memory to force fresh generation at milestone \(entryCount)", category: AppLogger.network)
-            insights = nil
+        // Determine if this is initial load or background regeneration
+        let hasExistingInsights = insights != nil
+
+        if hasExistingInsights {
+            AppLogger.log("🔄 Background regeneration at milestone \(milestone) (keeping previous insights visible)", category: AppLogger.network)
+            isRegeneratingInBackground = true
+        } else {
+            AppLogger.log("✅ Initial insights generation at milestone \(milestone)", category: AppLogger.network)
+            isLoading = true
         }
 
         // Validate entry count (edge function limits to 20)
@@ -203,7 +209,6 @@ class InsightViewModel: ObservableObject {
             AppLogger.log("⚠️ Too many entries (\(entries.count)). Using first 20 only.", category: AppLogger.network)
         }
 
-        isLoading = true
         errorMessage = nil
 
         do {
@@ -262,7 +267,9 @@ class InsightViewModel: ObservableObject {
             AppLogger.log("❌ Insights generation failed: \(error.localizedDescription)", category: AppLogger.network, type: .error)
         }
 
+        // Reset loading flags
         isLoading = false
+        isRegeneratingInBackground = false
     }
 
     /// Clears current insights and error state
@@ -676,15 +683,15 @@ class InsightViewModel: ObservableObject {
     }
 
     /// Calculates which milestone the current entry count represents (for saving new insights)
-    /// Returns 3, 6, 9, 12, etc.
+    /// Returns 2, 4, 6, 8, 10, etc.
     private func calculateMilestone(for entryCount: Int) -> Int {
-        if entryCount < 3 {
-            return 3
-        } else if entryCount % 3 == 0 {
+        if entryCount < 2 {
+            return 2
+        } else if entryCount % 2 == 0 {
             return entryCount
         } else {
             // Round up to next milestone
-            return ((entryCount / 3) + 1) * 3
+            return ((entryCount / 2) + 1) * 2
         }
     }
 

@@ -83,6 +83,9 @@ public struct InsightsView: View {
                     body: insights.description
                 )
 
+                // Timestamp - when insights were last updated
+                timestampView(insights: insights)
+
                 // Date Annotations Timeline (between description and themes)
                 if !insights.annotations.isEmpty {
                     InsightAnnotationsSection(annotations: insights.annotations)
@@ -212,7 +215,7 @@ public struct InsightsView: View {
             }
 
             // Info text
-            Text("First insights unlock at 3 entries")
+            Text("First insights unlock at 2 entries")
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.5))
 
@@ -246,6 +249,28 @@ public struct InsightsView: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(.white.opacity(0.1))
         )
+    }
+
+    /// Timestamp view showing when insights were last updated
+    private func timestampView(insights: JournalInsights) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "clock")
+                .font(.system(size: 12))
+                .foregroundStyle(theme.mutedForeground)
+
+            Text("Updated \(timeAgo(from: insights.generatedAt))")
+                .font(.system(size: 13))
+                .foregroundStyle(theme.mutedForeground)
+
+            Spacer()
+
+            if insightViewModel.isRegeneratingInBackground {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(theme.mutedForeground)
+            }
+        }
+        .padding(.horizontal, 4)
     }
 
     /// Reusable empty state view - matches JournalView exactly
