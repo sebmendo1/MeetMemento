@@ -91,9 +91,12 @@ public struct AddEntryView: View {
         .onAppear {
             setupInitialFocus()
         }
-        .onChange(of: speechService.transcribedText) { oldValue, newValue in
-            if !newValue.isEmpty {
-                insertTranscribedText(newValue)
+        .onChange(of: speechService.isRecording) { oldValue, newValue in
+            // When recording stops (transitions from true to false), insert the final text
+            if oldValue == true && newValue == false {
+                if !speechService.transcribedText.isEmpty {
+                    insertTranscribedText(speechService.transcribedText)
+                }
             }
         }
         .alert("Microphone Access Required", isPresented: $showPermissionDenied) {
