@@ -92,7 +92,27 @@ class SpeechService: ObservableObject {
         // Create and configure recognition request
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         recognitionRequest?.shouldReportPartialResults = true
-        recognitionRequest?.requiresOnDeviceRecognition = false // Use server for better accuracy
+
+        // Enable automatic punctuation on iOS 16+ for better quality
+        if #available(iOS 16.0, *) {
+            recognitionRequest?.addsPunctuation = true
+        }
+
+        // Set task hint to dictation for journal entry context
+        if #available(iOS 13.0, *) {
+            recognitionRequest?.taskHint = .dictation
+        }
+
+        // Add contextual strings for better recognition of app-specific terms
+        recognitionRequest?.contextualStrings = ["MeetMemento"]
+
+        // Use server-based recognition when online for better accuracy, fallback to on-device when offline
+        let isOnline = NetworkMonitor.shared.isConnected
+        recognitionRequest?.requiresOnDeviceRecognition = !isOnline
+
+        if !isOnline {
+            AppLogger.log("⚠️ Device offline - using on-device speech recognition", category: AppLogger.general)
+        }
 
         guard let recognitionRequest = recognitionRequest else {
             throw SpeechError.audioEngineError
@@ -120,7 +140,9 @@ class SpeechService: ObservableObject {
 
             Task { @MainActor in
                 if let result = result {
-                    self.transcribedText = result.bestTranscription.formattedString
+                    // Apply text processing for cleaner output
+                    let rawText = result.bestTranscription.formattedString
+                    self.transcribedText = TextProcessor.normalize(rawText)
                 }
 
                 if error != nil {
