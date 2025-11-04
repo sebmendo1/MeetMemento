@@ -167,6 +167,9 @@ public struct AddEntryView: View {
     
     private var microphoneFAB: some View {
         Button {
+            // Provide haptic feedback for button tap
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
             Task {
                 if speechService.isRecording {
                     await speechService.stopRecording()
