@@ -15,16 +15,10 @@ class EntryViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
-    // JSON Export
-    @Published var latestExport: EntriesExport?
-    @Published var lastExportDate: Date?
-
     private let supabaseService = SupabaseService.shared
-    private let exportService = EntryExportService.shared
 
    private var hasLoadedOnce = false
    private var isLoadingInProgress = false // Prevent concurrent load operations
-   private var exportSequence = 0 // Sequence number to prevent race conditions in export regeneration
     
     // MARK: - Month Grouping
     
@@ -99,9 +93,6 @@ class EntryViewModel: ObservableObject {
             #if DEBUG
             print("✅ Loaded \(entries.count) entries from Supabase")
             #endif
-
-            // Regenerate export after loading entries
-            scheduleExportRegeneration()
         } catch {
             // Handle different types of errors appropriately
             let errorDescription = error.localizedDescription.lowercased()
@@ -183,9 +174,6 @@ class EntryViewModel: ObservableObject {
                 print("   Title: \(title.isEmpty ? "(Untitled)" : title)")
                 print("   Text: \(text.prefix(50))...")
                 #endif
-
-                // Regenerate export after creation
-                scheduleExportRegeneration()
             } catch {
                 // Remove optimistic entry on failure
                 entries.removeAll(where: { $0.id == optimisticEntry.id })
@@ -215,9 +203,6 @@ class EntryViewModel: ObservableObject {
                 #if DEBUG
                 print("✅ Updated entry: \(result.id)")
                 #endif
-
-                // Regenerate export after update
-                scheduleExportRegeneration()
             } catch {
                 errorMessage = "Failed to update entry: \(error.localizedDescription)"
                 #if DEBUG
@@ -243,9 +228,6 @@ class EntryViewModel: ObservableObject {
                 #if DEBUG
                 print("🗑️ Deleted entry: \(id)")
                 #endif
-
-                // Regenerate export after deletion
-                scheduleExportRegeneration()
             } catch {
                 errorMessage = "Failed to delete entry: \(error.localizedDescription)"
                 #if DEBUG
@@ -253,81 +235,6 @@ class EntryViewModel: ObservableObject {
                 #endif
             }
         }
-    }
-
-    // MARK: - JSON Export
-
-    /// Schedules export regeneration with debouncing to prevent race conditions
-    /// Uses sequence number to prevent cancelled tasks from interfering with new ones
-    private func scheduleExportRegeneration() {
-        exportSequence += 1
-        let currentSequence = exportSequence
-
-        Task {
-            // Debounce: wait 500ms before regenerating
-            try? await Task.sleep(nanoseconds: 500_000_000)
-
-            // Only proceed if this is still the latest requested export
-            guard currentSequence == exportSequence else {
-                #if DEBUG
-                print("⏭️ Skipping stale export regeneration (sequence \(currentSequence) vs \(exportSequence))")
-                #endif
-                return
-            }
-
-            await regenerateExport()
-        }
-    }
-
-    /// Regenerates the JSON export from current entries
-    /// - Saves to file and updates in-memory cache
-    /// - Runs in background without blocking UI
-    func regenerateExport() async {
-        do {
-            // Create export from current entries
-            let export = exportService.createExport(from: entries)
-
-            // Save to file (background operation)
-            let fileURL = try await exportService.saveToFile(export)
-
-            // Update published properties on main actor
-            await MainActor.run {
-                self.latestExport = export
-                self.lastExportDate = Date()
-            }
-
-            #if DEBUG
-            print("📦 Export regenerated: \(entries.count) entries")
-            print("   Saved to: \(fileURL.lastPathComponent)")
-            #endif
-        } catch {
-            #if DEBUG
-            print("⚠️ Failed to regenerate export: \(error.localizedDescription)")
-            #endif
-            // Don't show error to user - export is background operation
-        }
-    }
-
-    /// Returns the current export as JSON string for edge functions
-    /// - Returns: JSON string of all entries, or nil if no entries
-    func getExportJSON() async throws -> String? {
-        // Use cached export if available and recent
-        if let cached = latestExport,
-           let lastExport = lastExportDate,
-           Date().timeIntervalSince(lastExport) < 60 { // Cache valid for 60 seconds
-            return try exportService.getJSONString(from: cached)
-        }
-
-        // Otherwise regenerate
-        let export = exportService.createExport(from: entries)
-
-        // Update cache
-        await MainActor.run {
-            self.latestExport = export
-            self.lastExportDate = Date()
-        }
-
-        return try exportService.getJSONString(from: export)
     }
 
     // MARK: - Mock Data (for testing/previews only)

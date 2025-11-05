@@ -204,16 +204,6 @@ public struct DataUsageInfoView: View {
 
             VStack(alignment: .leading, spacing: 16) {
                 DataItem(
-                    icon: "arrow.down.doc.fill",
-                    title: "Export Your Data",
-                    description: "You can export all your data at any time in JSON format from the Settings page."
-                )
-
-                Divider()
-                    .background(theme.border)
-                    .padding(.horizontal, 16)
-
-                DataItem(
                     icon: "trash.fill",
                     title: "Delete Your Account",
                     description: "You can permanently delete your account and all associated data at any time from Settings."

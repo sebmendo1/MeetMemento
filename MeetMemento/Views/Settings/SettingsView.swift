@@ -18,11 +18,6 @@ struct SettingsView: View {
     @State private var isDeletingAccount = false
     @State private var deleteAccountError: String?
     @State private var showDataUsageInfo = false
-    @State private var exportedData: Data?
-    @State private var showShareSheet = false
-    @State private var isExportingData = false
-    @State private var exportError: String?
-    @State private var showExportError = false
 
     var body: some View {
         ScrollView {
@@ -93,16 +88,6 @@ struct SettingsView: View {
                     .useTheme()
                     .useTypography()
             }
-        }
-        .sheet(isPresented: $showShareSheet) {
-            if let data = exportedData {
-                ShareSheet(items: [data])
-            }
-        }
-        .alert("Export Failed", isPresented: $showExportError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(exportError ?? "Failed to export your data. Please try again.")
         }
     }
 
@@ -229,20 +214,6 @@ struct SettingsView: View {
             // Section content card
             VStack(spacing: 0) {
                 SettingsRow(
-                    icon: "arrow.down.doc",
-                    title: "Export My Data",
-                    subtitle: isExportingData ? "Preparing export..." : "Download all your journal entries",
-                    showChevron: true,
-                    action: {
-                        exportData()
-                    }
-                )
-
-                Divider()
-                    .background(theme.border)
-                    .padding(.horizontal, 16)
-
-                SettingsRow(
                     icon: "hand.raised",
                     title: "Privacy Policy",
                     subtitle: "How we protect your data",
@@ -368,34 +339,6 @@ struct SettingsView: View {
         }
     }
 
-    private func exportData() {
-        isExportingData = true
-
-        Task {
-            do {
-                // Create export from current entries
-                let export = EntryExportService.shared.createExport(from: entryViewModel.entries)
-
-                // Convert export to JSON data
-                let jsonData = try EntryExportService.shared.getJSONData(from: export)
-
-                await MainActor.run {
-                    exportedData = jsonData
-                    isExportingData = false
-                    showShareSheet = true
-                }
-            } catch {
-                await MainActor.run {
-                    exportError = error.localizedDescription
-                    isExportingData = false
-                    showExportError = true
-                }
-                AppLogger.log("❌ Export failed: \(error.localizedDescription)",
-                             category: AppLogger.general,
-                             type: .error)
-            }
-        }
-    }
 }
 
 // MARK: - ShareSheet Helper
