@@ -61,6 +61,10 @@ public struct AddEntryView: View {
         if case .edit(let entry) = state { return entry }
         return nil
     }
+
+    private var fabWidth: CGFloat {
+        speechService.isRecording ? 120 : 64
+    }
     
     public var body: some View {
         ScrollView {
@@ -188,37 +192,30 @@ public struct AddEntryView: View {
                 }
             }
         } label: {
-            VStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ZStack {
                     if speechService.isProcessing {
                         ProgressView()
                             .controlSize(.regular)
                             .tint(.white)
                     } else {
-                        Image(systemName: speechService.isRecording ? "stop.circle.fill" : "mic.fill")
-                            .font(.system(size: 24))
+                        Image(systemName: speechService.isRecording ? "stop.fill" : "mic.fill")
+                            .font(.system(size: 22))
                             .foregroundColor(.white)
-                            .scaleEffect(speechService.isRecording ? 1.1 : 1.0)
-                            .opacity(speechService.isRecording ? 0.8 : 1.0)
-                            .animation(
-                                speechService.isRecording
-                                    ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
-                                    : .default,
-                                value: speechService.isRecording
-                            )
                     }
                 }
 
-                // Duration timer
+                // Duration timer appears inside button when recording
                 if speechService.isRecording {
                     Text(formatDuration(speechService.currentDuration))
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
+                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 }
             }
-            .frame(width: 64, height: 64)
+            .frame(width: fabWidth, height: 64)
             .background(
-                Circle()
+                Capsule()
                     .fill(
                         LinearGradient(
                             colors: speechService.isRecording
@@ -231,6 +228,7 @@ public struct AddEntryView: View {
             )
             .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: speechService.isRecording)
         .disabled(speechService.isProcessing)
         .accessibilityLabel(speechService.isRecording ? "Stop recording" : "Start voice recording")
         .accessibilityHint(speechService.isRecording ? "Double-tap to stop and insert text" : "Double-tap to record your voice")
