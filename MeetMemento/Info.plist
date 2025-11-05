@@ -28,5 +28,18 @@
 	<string>MeetMemento needs microphone access to transcribe your journal entries using voice.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>MeetMemento uses speech recognition to convert your voice into text for journal entries.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.sebastianmendo.MeetMemento</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>memento</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

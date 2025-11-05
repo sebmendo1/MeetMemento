@@ -369,7 +369,7 @@ class InsightViewModel: ObservableObject {
         let accessToken = session.accessToken
 
         // ALTERNATIVE APPROACH: Use URLSession directly for better debugging
-        let functionUrl = URL(string: "https://fhsgvlbedqwxwpubtlls.supabase.co/functions/v1/generate-insights")!
+        let functionUrl = URL(string: "\(SupabaseConfig.url)/functions/v1/generate-insights")!
 
         var request = URLRequest(url: functionUrl)
         request.httpMethod = "POST"

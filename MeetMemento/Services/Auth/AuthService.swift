@@ -16,13 +16,11 @@ final class AuthService: NSObject {
     static let shared = AuthService()
 
     /// Update this in one place to control the callback URL scheme used by OAuth providers.
-    /// ⚠️ IMPORTANT: URL scheme not configured. Add "memento" to Target → Info → URL Types for OAuth redirect
+    /// ✅ URL scheme configured in Info.plist: "memento" for OAuth redirect
     struct Constants {
         static let callbackURL: URL = {
-            guard let url = URL(string: "memento://auth-callback") else {
-                fatalError("Invalid OAuth callback URL configuration. Check AuthService.Constants.callbackURL")
-            }
-            return url
+            // Safe unwrap - this URL format is guaranteed to be valid
+            URL(string: "memento://auth-callback")!
         }()
     }
 
