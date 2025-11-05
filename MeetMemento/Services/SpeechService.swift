@@ -142,6 +142,13 @@ class SpeechService: ObservableObject {
                 if let result = result {
                     // Apply text processing for cleaner output
                     let rawText = result.bestTranscription.formattedString
+
+                    // Filter out placeholder dots and empty/whitespace-only results
+                    let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty && trimmed != "..." && !trimmed.allSatisfy({ $0 == "." }) else {
+                        return  // Ignore placeholder results
+                    }
+
                     self.transcribedText = TextProcessor.normalize(rawText)
                 }
 

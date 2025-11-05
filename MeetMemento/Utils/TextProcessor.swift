@@ -41,7 +41,7 @@ struct TextProcessor {
     /// - Returns: Text with normalized whitespace
     private static func trimExcessiveWhitespace(_ text: String) -> String {
         // Replace multiple spaces with single space
-        var result = text.replacingOccurrences(of: "  +", with: " ", options: .regularExpression)
+        var result = text.replacingOccurrences(of: " +", with: " ", options: .regularExpression)
 
         // Replace multiple newlines with maximum of 2 (paragraph break)
         result = result.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
