@@ -63,7 +63,8 @@ struct TextProcessor {
 
         // Add space after punctuation if missing (except at end of string or before newline)
         for mark in punctuation {
-            let pattern = "\(mark)(?=[^\\s\\n])"
+            let escapedMark = NSRegularExpression.escapedPattern(for: mark)
+            let pattern = "\(escapedMark)(?=[^\\s\\n])"
             result = result.replacingOccurrences(of: pattern, with: "\(mark) ", options: .regularExpression)
         }
 
