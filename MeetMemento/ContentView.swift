@@ -30,8 +30,13 @@ public struct ContentView: View {
     // Entry view model for managing journal entries (shared across views)
     @StateObject private var entryViewModel = EntryViewModel()
 
+    // Paywall state
+    @State private var showPaywall = false
+    @State private var paywallIsDismissible = true
+
     @Environment(\.theme) private var theme
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
 
     public init() {}
 
@@ -54,8 +59,11 @@ public struct ContentView: View {
                 // Bottom navigation with FAB only
                 BottomNavigation(
                     onJournalCreate: {
-                        navigationPath.append(EntryRoute.create)
-                    }
+                        Task {
+                            await handleCreateEntry()
+                        }
+                    },
+                    isDisabled: subscriptionManager.isCheckingPermission
                 )
             }
             .ignoresSafeArea(.all, edges: .bottom)
@@ -81,6 +89,7 @@ public struct ContentView: View {
                 case .main:
                     SettingsView()
                         .environmentObject(authViewModel)
+                        .environmentObject(entryViewModel)
                 case .profile:
                     ProfileSettingsView()
                         .environmentObject(authViewModel)
@@ -90,10 +99,36 @@ public struct ContentView: View {
                     AboutSettingsView()
                 }
             }
+            .fullScreenCover(isPresented: $showPaywall) {
+                PaywallView(isDismissible: paywallIsDismissible) {
+                    // On purchase complete, refresh subscription status
+                    Task {
+                        await subscriptionManager.checkSubscriptionStatus()
+                    }
+                }
+                .environmentObject(subscriptionManager)
+            }
         }
         .useTheme()
         .useTypography()
         // Note: Entry loading is deferred to JournalView for faster app launch
+    }
+
+    // MARK: - Actions
+
+    /// Handles create entry action with subscription check
+    private func handleCreateEntry() async {
+        // Check if user can create entry
+        let canCreate = await subscriptionManager.canCreateEntry()
+
+        if canCreate {
+            // User can create entry - navigate to AddEntryView
+            navigationPath.append(EntryRoute.create)
+        } else {
+            // User hit limit - show paywall (always dismissible)
+            paywallIsDismissible = true
+            showPaywall = true
+        }
     }
 }
 

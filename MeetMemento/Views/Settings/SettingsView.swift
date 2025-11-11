@@ -18,10 +18,17 @@ struct SettingsView: View {
     @State private var isDeletingAccount = false
     @State private var deleteAccountError: String?
     @State private var showDataUsageInfo = false
+    @State private var showPaywall = false
+
+    @StateObject private var subscriptionManager = SubscriptionManager()
+    @StateObject private var subscriptionService = SubscriptionService.shared
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                // Subscription Section (at top)
+                subscriptionSection
+
                 // Account Section
                 accountSection
 
@@ -89,9 +96,170 @@ struct SettingsView: View {
                     .useTypography()
             }
         }
+        .fullScreenCover(isPresented: $showPaywall) {
+            PaywallView(isDismissible: true) {
+                Task {
+                    await subscriptionManager.checkSubscriptionStatus()
+                }
+            }
+            .environmentObject(subscriptionManager)
+        }
+        .task {
+            await subscriptionManager.checkSubscriptionStatus()
+        }
     }
 
     // MARK: - Sections
+
+    private var subscriptionSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section header
+            Text("Subscription")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(theme.foreground)
+                .padding(.bottom, 4)
+
+            // Section content card
+            VStack(spacing: 0) {
+                // Subscription status row
+                HStack(spacing: 16) {
+                    // Icon
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: subscriptionManager.isPremium ?
+                                        [Color.blue.opacity(0.2), Color.purple.opacity(0.2)] :
+                                        [Color.gray.opacity(0.2), Color.gray.opacity(0.2)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 48, height: 48)
+
+                        Image(systemName: subscriptionManager.isPremium ? "crown.fill" : "crown")
+                            .font(.system(size: 22))
+                            .foregroundStyle(
+                                subscriptionManager.isPremium ?
+                                    LinearGradient(
+                                        colors: [Color.blue, Color.purple],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ) :
+                                    LinearGradient(
+                                        colors: [Color.gray, Color.gray],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                            )
+                    }
+                    .padding(.leading, 16)
+
+                    // Status text
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(subscriptionManager.isPremium ? "Premium" : "Free Plan")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(theme.foreground)
+
+                        Text(subscriptionManager.statusMessage)
+                            .font(.system(size: 14))
+                            .foregroundStyle(theme.foreground.opacity(0.6))
+                    }
+
+                    Spacer()
+                }
+                .padding(.vertical, 16)
+
+                // Manage subscription / Upgrade buttons
+                if subscriptionManager.isPremium {
+                    Divider()
+                        .background(theme.border)
+                        .padding(.horizontal, 16)
+
+                    // Manage subscription button
+                    Button {
+                        openSubscriptionManagement()
+                    } label: {
+                        SettingsRow(
+                            icon: "gearshape.fill",
+                            title: "Manage Subscription",
+                            subtitle: "View or cancel in App Store",
+                            showChevron: true,
+                            action: nil
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Divider()
+                        .background(theme.border)
+                        .padding(.horizontal, 16)
+
+                    // Restore purchases button
+                    SettingsRow(
+                        icon: "arrow.clockwise.circle.fill",
+                        title: "Restore Purchases",
+                        subtitle: "Sync subscriptions across devices",
+                        showChevron: false,
+                        showProgress: subscriptionService.purchaseState.isProcessing,
+                        action: {
+                            Task {
+                                await subscriptionService.restorePurchases()
+                            }
+                        }
+                    )
+                } else {
+                    Divider()
+                        .background(theme.border)
+                        .padding(.horizontal, 16)
+
+                    // Upgrade to premium button
+                    Button {
+                        showPaywall = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 20))
+                            Text("Upgrade to Premium")
+                                .font(.system(size: 17, weight: .semibold))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 16)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.blue, Color.purple],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Divider()
+                        .background(theme.border)
+                        .padding(.horizontal, 16)
+
+                    // Restore purchases button
+                    SettingsRow(
+                        icon: "arrow.clockwise.circle.fill",
+                        title: "Restore Purchases",
+                        subtitle: "Already subscribed? Restore here",
+                        showChevron: false,
+                        showProgress: subscriptionService.purchaseState.isProcessing,
+                        action: {
+                            Task {
+                                await subscriptionService.restorePurchases()
+                            }
+                        }
+                    )
+                }
+            }
+            .background(BaseColors.white)
+            .cornerRadius(16)
+        }
+    }
 
     private var accountSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -336,6 +504,13 @@ struct SettingsView: View {
                                  type: .error)
                 }
             }
+        }
+    }
+
+    private func openSubscriptionManagement() {
+        // Open iOS Settings app subscription management
+        if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+            UIApplication.shared.open(url)
         }
     }
 

@@ -15,6 +15,7 @@ public struct BottomNavigation: View {
 
     // MARK: - Properties
     public let onJournalCreate: () -> Void
+    public let isDisabled: Bool
 
     @Environment(\.theme) private var theme
 
@@ -24,9 +25,11 @@ public struct BottomNavigation: View {
 
     // MARK: - Initializer
     public init(
-        onJournalCreate: @escaping () -> Void
+        onJournalCreate: @escaping () -> Void,
+        isDisabled: Bool = false
     ) {
         self.onJournalCreate = onJournalCreate
+        self.isDisabled = isDisabled
     }
 
     // MARK: - Body
@@ -41,6 +44,8 @@ public struct BottomNavigation: View {
                 IconButton(systemImage: "plus") {
                     onJournalCreate()
                 }
+                .disabled(isDisabled)
+                .opacity(isDisabled ? 0.5 : 1.0)
                 .padding(.trailing, horizontalPadding)
                 .accessibilityLabel("Create new journal entry")
             }

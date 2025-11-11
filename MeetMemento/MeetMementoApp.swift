@@ -10,6 +10,7 @@ import SwiftUI
 @main
 struct MeetMementoApp: App {
     @StateObject private var authViewModel = AuthViewModel()
+    @StateObject private var subscriptionManager = SubscriptionManager()
 
     init() {
         #if DEBUG
@@ -24,6 +25,7 @@ struct MeetMementoApp: App {
                     // Fully onboarded user - show main app
                     ContentView()
                         .environmentObject(authViewModel)
+                        .environmentObject(subscriptionManager)
                         .onAppear {
                             #if DEBUG
                             print("🔴 ContentView appeared")
@@ -52,6 +54,10 @@ struct MeetMementoApp: App {
                 // Note: checkAuthState() already checks onboarding status atomically,
                 // no need for separate checkOnboardingStatus() call
                 await authViewModel.initializeAuth()
+
+                // Initialize subscription service (loads products from App Store)
+                await subscriptionManager.checkSubscriptionStatus()
+
                 #if DEBUG
                 print("🔴 .task block completed")
                 #endif

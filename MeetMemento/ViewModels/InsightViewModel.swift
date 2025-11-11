@@ -735,7 +735,7 @@ class InsightViewModel: ObservableObject {
                 }
 
                 // Subscribe to the channel
-                await channel.subscribe()
+                try await channel.subscribeWithError()
 
                 // Store channel reference on main actor
                 await MainActor.run { [weak self] in

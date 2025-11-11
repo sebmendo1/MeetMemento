@@ -56,23 +56,14 @@ class SupabaseService {
         #if DEBUG
         print("🔵 SupabaseService: Config valid, creating SupabaseClient...")
         #endif
-        do {
-            client = SupabaseClient(
-                supabaseURL: url,
-                supabaseKey: SupabaseConfig.anonKey
-            )
-            #if DEBUG
-            print("✅ Supabase client created successfully")
-            #endif
-            AppLogger.log("✅ Supabase client initialized", category: AppLogger.network)
-        } catch {
-            #if DEBUG
-            print("❌ SupabaseClient creation failed: \(error)")
-            #endif
-            AppLogger.log("❌ SupabaseClient creation failed: \(error.localizedDescription)",
-                         category: AppLogger.network,
-                         type: .error)
-        }
+        client = SupabaseClient(
+            supabaseURL: url,
+            supabaseKey: SupabaseConfig.anonKey
+        )
+        #if DEBUG
+        print("✅ Supabase client created successfully")
+        #endif
+        AppLogger.log("✅ Supabase client initialized", category: AppLogger.network)
     }
     
     // MARK: - Authentication
@@ -95,17 +86,10 @@ class SupabaseService {
         print("🔵 SupabaseService.getCurrentUser() called")
         #endif
 
-        do {
-            ensureClientInitialized()
-            #if DEBUG
-            print("🔵 getCurrentUser: Client initialized")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ getCurrentUser: Client initialization failed - \(error)")
-            #endif
-            throw SupabaseServiceError.clientNotConfigured
-        }
+        ensureClientInitialized()
+        #if DEBUG
+        print("🔵 getCurrentUser: Client initialized")
+        #endif
 
         guard let client = client else {
             #if DEBUG
@@ -667,6 +651,113 @@ struct EntryStats: Codable {
     var lastEntryAsDate: Date? {
         guard let dateString = lastEntryDate else { return nil }
         return ISO8601DateFormatter().date(from: dateString)
+    }
+}
+
+// MARK: - Subscription Management
+
+extension SupabaseService {
+    /// Saves subscription data after successful StoreKit purchase
+    func saveSubscription(
+        productId: String,
+        transactionId: String,
+        originalTransactionId: String,
+        expiresAt: Date,
+        receiptData: [String: Any]?
+    ) async throws {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        let userId = try await getCurrentUserId()
+
+        struct SubscriptionInsert: Codable {
+            let userId: String
+            let productId: String
+            let transactionId: String
+            let originalTransactionId: String
+            let isActive: Bool
+            let expiresAt: String
+
+            enum CodingKeys: String, CodingKey {
+                case userId = "user_id"
+                case productId = "product_id"
+                case transactionId = "transaction_id"
+                case originalTransactionId = "original_transaction_id"
+                case isActive = "is_active"
+                case expiresAt = "expires_at"
+            }
+        }
+
+        let subscription = SubscriptionInsert(
+            userId: userId.uuidString,
+            productId: productId,
+            transactionId: transactionId,
+            originalTransactionId: originalTransactionId,
+            isActive: true,
+            expiresAt: ISO8601DateFormatter().string(from: expiresAt)
+        )
+
+        // Use upsert to handle renewals (same original_transaction_id)
+        try await client
+            .from("user_subscriptions")
+            .upsert(subscription)
+            .execute()
+
+        AppLogger.log("✅ Subscription saved: \(productId) expires \(expiresAt)",
+                     category: AppLogger.network)
+    }
+
+    /// Fetches user's active subscription status from database
+    func getSubscriptionStatus() async throws -> SubscriptionStatus? {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        struct DBSubscription: Codable {
+            let isActive: Bool
+            let productId: String
+            let expiresAt: String
+
+            enum CodingKeys: String, CodingKey {
+                case isActive = "is_active"
+                case productId = "product_id"
+                case expiresAt = "expires_at"
+            }
+        }
+
+        let result: [DBSubscription] = try await client
+            .rpc("get_subscription_status")
+            .execute()
+            .value
+
+        guard let subscription = result.first else {
+            return nil
+        }
+
+        let expirationDate = ISO8601DateFormatter().date(from: subscription.expiresAt)
+
+        return SubscriptionStatus(
+            tier: .premium,
+            expirationDate: expirationDate,
+            freeEntriesRemaining: 0,
+            productId: subscription.productId
+        )
+    }
+
+    /// Check if user can create more entries (< 10 entries OR active subscription)
+    func canCreateEntry() async throws -> Bool {
+        guard let client = client else {
+            throw SupabaseServiceError.clientNotConfigured
+        }
+
+        let result: Bool = try await client
+            .rpc("can_create_entry")
+            .execute()
+            .value
+
+        AppLogger.log("📊 Can create entry: \(result)", category: AppLogger.network)
+        return result
     }
 }
 
